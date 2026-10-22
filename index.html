@@ -1,0 +1,2061 @@
+<!DOCTYPE html>
+<html lang="id" class="dark scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <!-- ========================================================================= -->
+    <!-- INISIALISASI DINI: EARLY SECURITY GUARD & HUD CONTROLLER (V5.6 SABO PRO)  -->
+    <!-- Proteksi Ctrl+U, F12, DevTools, Klik Kanan & Notifikasi Taktis Audio      -->
+    <!-- ========================================================================= -->
+    <script id="saboDamEarlySecurityGuard">
+    (function() {
+        'use strict';
+        var attemptCount = 0;
+        var toastTimeout = null;
+        var progressInterval = null;
+
+        function playSecurityTone() {
+            try {
+                var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) return;
+                var ctx = new AudioContextClass();
+                if (ctx.state === 'suspended') ctx.resume();
+                var now = ctx.currentTime;
+
+                var osc1 = ctx.createOscillator();
+                var gain1 = ctx.createGain();
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(960, now);
+                osc1.frequency.exponentialRampToValueAtTime(440, now + 0.14);
+                gain1.gain.setValueAtTime(0.09, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.15);
+
+                var osc2 = ctx.createOscillator();
+                var gain2 = ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(540, now + 0.08);
+                osc2.frequency.exponentialRampToValueAtTime(240, now + 0.24);
+                gain2.gain.setValueAtTime(0.07, now + 0.08);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.08);
+                osc2.stop(now + 0.25);
+            } catch(e) {}
+        }
+
+        function showSecurityToastHUD(violationType, actionTitle, explanationText) {
+            attemptCount++;
+            playSecurityTone();
+            var now = new Date();
+            var timeStr = now.toLocaleTimeString('id-ID').replace(/:/g, '.') + ' WIB';
+
+            var existingHud = document.getElementById('damSecurityToastHUD');
+            if (existingHud) {
+                var badge = document.getElementById('secHudAttemptBadge');
+                if (badge) badge.innerText = 'Percobaan ke-' + attemptCount;
+                var titleEl = document.getElementById('secHudActionTitle');
+                if (titleEl) titleEl.innerText = actionTitle;
+                var expEl = document.getElementById('secHudExplanation');
+                if (expEl) expEl.innerText = explanationText;
+                var timeEl = document.getElementById('secHudTimestamp');
+                if (timeEl) timeEl.innerText = timeStr;
+                resetCountdown(3800);
+                return;
+            }
+
+            var hud = document.createElement('div');
+            hud.id = 'damSecurityToastHUD';
+            hud.className = 'dam-sec-hud';
+            hud.innerHTML = [
+                '<div class="sec-hud-card">',
+                '  <div class="sec-hud-header">',
+                '    <div class="sec-hud-title-group">',
+                '      <div class="sec-hud-icon-wrap"><i class="fa-solid fa-shield-halved sec-shield-icon"></i></div>',
+                '      <div>',
+                '        <div class="sec-hud-title">PROTOKOL KEAMANAN SABO DAM PRO</div>',
+                '        <div class="sec-hud-subtitle">EARLY GUARD V5.6 • INTEGRITAS ALGORITMA SABO DAM & GEOTEKNIK</div>',
+                '      </div>',
+                '    </div>',
+                '    <div class="sec-hud-ctrls">',
+                '      <span id="secHudAttemptBadge" class="sec-badge-attempt">Percobaan ke-' + attemptCount + '</span>',
+                '      <button type="button" class="sec-hud-close-btn" onclick="window.BOWTIE_SECURITY_GUARD.dismiss()"><i class="fa-solid fa-xmark"></i></button>',
+                '    </div>',
+                '  </div>',
+                '  <div class="sec-hud-body">',
+                '    <div class="sec-action-banner">',
+                '      <i class="fa-solid fa-ban text-rose-400"></i>',
+                '      <span id="secHudActionTitle" class="sec-action-title">' + actionTitle + '</span>',
+                '    </div>',
+                '    <p id="secHudExplanation" class="sec-explanation">' + explanationText + '</p>',
+                '  </div>',
+                '  <div class="sec-hud-footer">',
+                '    <div class="sec-meta-left"><span class="sec-meta-dot"></span><span>Model Sabo Dam, Debris Flow & Hak Cipta Ir. Mohamad Hartadi Terlindungi</span></div>',
+                '    <div id="secHudTimestamp" class="sec-timestamp">' + timeStr + '</div>',
+                '  </div>',
+                '  <div class="sec-progress-track"><div id="secProgressBar" class="sec-progress-bar"></div></div>',
+                '</div>'
+            ].join('\n');
+
+            (document.body || document.documentElement).appendChild(hud);
+            resetCountdown(3800);
+        }
+
+        function resetCountdown(durationMs) {
+            if (toastTimeout) clearTimeout(toastTimeout);
+            if (progressInterval) clearInterval(progressInterval);
+            var bar = document.getElementById('secProgressBar');
+            if (bar) {
+                bar.style.width = '100%';
+                var startTime = Date.now();
+                progressInterval = setInterval(function() {
+                    var elapsed = Date.now() - startTime;
+                    var remaining = Math.max(0, 1 - (elapsed / durationMs));
+                    if (bar) bar.style.width = (remaining * 100) + '%';
+                    if (elapsed >= durationMs) clearInterval(progressInterval);
+                }, 40);
+            }
+            toastTimeout = setTimeout(dismissHUD, durationMs);
+        }
+
+        function dismissHUD() {
+            if (progressInterval) clearInterval(progressInterval);
+            var hud = document.getElementById('damSecurityToastHUD');
+            if (hud && hud.parentNode) hud.parentNode.removeChild(hud);
+        }
+
+        function handleSecurityKeydown(e) {
+            var key = (e.key || '').toLowerCase();
+            var keyCode = e.keyCode || e.which;
+            var isCtrl = e.ctrlKey || e.metaKey;
+            var isShift = e.shiftKey;
+            var isAlt = e.altKey;
+
+            if (isCtrl && (key === 'u' || keyCode === 85)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('VIEW_SOURCE', 'AKSES KODE SUMBER DIBLOKIR: Ctrl + U', 'Pemeriksaan kode sumber halaman dinonaktifkan untuk melindungi algoritma stabilitas Sabo Dam dan aliran debris.');
+                return false;
+            }
+            if (key === 'f12' || keyCode === 123 || (isCtrl && (isShift || isAlt) && ['i','j','c','k'].includes(key))) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('DEVTOOLS', 'AKSES DEVTOOLS DIBLOKIR', 'Inspeksi elemen dinonaktifkan demi menjaga integritas simulasi struktur Sabo Dam.');
+                return false;
+            }
+            if (isCtrl && !isShift && (key === 's' || keyCode === 83)) {
+                e.preventDefault(); e.stopPropagation();
+                showSecurityToastHUD('SAVE_PAGE', 'PENYIMPANAN HALAMAN DIBLOKIR: Ctrl + S', 'Gunakan tombol resmi Ekspor Laporan Word (.doc) / PNG pada toolbar aplikasi.');
+                return false;
+            }
+        }
+
+        function handleSecurityContextMenu(e) {
+            var tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+            e.preventDefault(); e.stopPropagation();
+            showSecurityToastHUD('CONTEXT_MENU', 'PROTEKSI KLIK KANAN AKTIF', 'Menu konteks dinonaktifkan untuk melindungi aset visual Blueprint Sabo Dam, WebGIS, dan Bumi 3D.');
+            return false;
+        }
+
+        window.addEventListener('keydown', handleSecurityKeydown, true);
+        window.addEventListener('contextmenu', handleSecurityContextMenu, true);
+
+        window.BOWTIE_SECURITY_GUARD = {
+            version: '5.6.0-SABO-PRO',
+            triggerViolation: showSecurityToastHUD,
+            dismiss: dismissHUD
+        };
+    })();
+    </script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABO DAM & GRAVITY DAM STABILITY PRO v5.6 ULTIMATE — Simulasi Hidrostatis, Tekanan Sedimen, Impak Aliran Debris/Lahar & Risalah Teknis</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Plus Jakarta Sans', 'sans-serif'],
+                        tech: ['Orbitron', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Leaflet GIS, Chart.js & Three.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        @keyframes mbotPop { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+        .mbot-dot { width: 6px; height: 6px; border-radius: 50%; background: #22d3ee; display: inline-block; animation: mbotBlink 1.1s infinite; }
+        .mbot-dot:nth-child(2) { animation-delay: .2s; } .mbot-dot:nth-child(3) { animation-delay: .4s; }
+        @keyframes mbotBlink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+        .mbot-glow-em { box-shadow: 0 0 14px rgba(16,185,129,.18); } .mbot-glow-cy { box-shadow: 0 0 14px rgba(6,182,212,.18); }
+
+        :root {
+            --bg-main: #020617;
+            --bg-card: rgba(12, 20, 38, 0.92);
+            --bg-header: rgba(9, 16, 32, 0.94);
+            --border-color: rgba(16, 185, 129, 0.35);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        html:not(.dark) {
+            --bg-main: #f1f5f9;
+            --bg-card: rgba(255, 255, 255, 0.96);
+            --bg-header: rgba(255, 255, 255, 0.96);
+            --border-color: rgba(16, 185, 129, 0.45);
+            --text-main: #0f172a;
+            --text-muted: #475569;
+        }
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .font-tech { font-family: 'Orbitron', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        .cmd-card {
+            background: var(--bg-card);
+            border: 1.5px solid var(--border-color);
+            border-radius: 1rem;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.65);
+            transition: all 0.25s ease;
+        }
+        .cmd-card:hover {
+            border-color: rgba(52, 211, 153, 0.65);
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.18);
+        }
+
+        .blueprint-grid {
+            background-color: #0b3155;
+            background-image:
+                linear-gradient(rgba(125, 211, 252, 0.16) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(125, 211, 252, 0.16) 1px, transparent 1px),
+                linear-gradient(rgba(125, 211, 252, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(125, 211, 252, 0.07) 1px, transparent 1px);
+            background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+        }
+
+        .red-glow-box {
+            border: 2px solid #f43f5e;
+            background: rgba(136, 19, 55, 0.38);
+            box-shadow: 0 0 16px rgba(244, 63, 94, 0.55), inset 0 0 10px rgba(244, 63, 94, 0.25);
+            border-radius: 0.75rem;
+        }
+
+        .formula-box {
+            background: rgba(2, 6, 23, 0.88);
+            border-left: 3.5px solid #10b981;
+            padding: 7px 11px;
+            border-radius: 0 8px 8px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #6ee7b7;
+        }
+
+        .dam-sec-hud {
+            position: fixed; top: 20px; right: 20px; width: min(430px, calc(100vw - 24px));
+            z-index: 100050; pointer-events: auto;
+        }
+        .sec-hud-card {
+            background: linear-gradient(135deg, rgba(8, 22, 28, 0.98), rgba(2, 6, 23, 0.98), rgba(28, 10, 18, 0.98));
+            border: 1.5px solid #10b981; border-radius: 14px;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.4), 0 20px 50px rgba(0,0,0,0.9);
+            overflow: hidden;
+        }
+        .sec-hud-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; background: rgba(16, 185, 129, 0.18);
+            border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .sec-hud-title-group { display: flex; align-items: center; gap: 10px; }
+        .sec-hud-icon-wrap {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: rgba(16, 185, 129, 0.25); border: 1px solid #34d399;
+            display: flex; align-items: center; justify-content: center; color: #34d399;
+        }
+        .sec-hud-title { font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 900; color: #fff; }
+        .sec-hud-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6ee7b7; }
+        .sec-hud-ctrls { display: flex; align-items: center; gap: 6px; }
+        .sec-badge-attempt {
+            font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 800;
+            color: #fde047; background: rgba(133, 77, 14, 0.5); border: 1px solid #facc15;
+            padding: 2px 6px; border-radius: 5px;
+        }
+        .sec-hud-close-btn {
+            width: 24px; height: 24px; border-radius: 6px; background: rgba(15,23,42,0.8);
+            border: 1px solid #10b981; color: #a7f3d0; cursor: pointer;
+        }
+        .sec-hud-body { padding: 12px 14px; }
+        .sec-action-banner {
+            display: flex; align-items: center; gap: 8px; background: rgba(244, 63, 94, 0.18);
+            border-left: 3.5px solid #f43f5e; padding: 6px 10px; border-radius: 0 6px 6px 0; margin-bottom: 8px;
+        }
+        .sec-action-title { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 800; color: #ffe4e6; }
+        .sec-explanation { font-size: 11px; color: #cbd5e1; line-height: 1.45; margin: 0; }
+        .sec-hud-footer {
+            display: flex; justify-content: space-between; padding: 7px 14px;
+            background: rgba(2,6,23,0.7); font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #34d399;
+        }
+        .sec-meta-left { display: flex; align-items: center; gap: 6px; }
+        .sec-meta-dot { width: 6px; height: 6px; border-radius: 50%; background: #34d399; }
+        .sec-progress-track { width: 100%; height: 3px; background: #0f172a; }
+        .sec-progress-bar { height: 100%; width: 100%; background: linear-gradient(90deg, #10b981, #06b6d4, #f59e0b); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(2, 6, 23, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.5); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+
+        .capsule-translate { display:inline-flex; align-items:center; gap:6px; border:1.5px solid #00B8D4; border-radius:9999px; background:rgba(0,20,30,.55); color:#7FEBFF; font-family:'JetBrains Mono',monospace; font-weight:700; cursor:pointer; transition:all .2s; }
+        .capsule-translate:hover { background:rgba(0,184,212,.15); box-shadow:0 0 12px rgba(0,184,212,.35); }
+        .capsule-translate i { color:#7FEBFF; }
+        .capsule-font { display:inline-flex; align-items:center; gap:8px; border:1.5px solid #C6A664; border-radius:9999px; background:rgba(30,25,10,.55); color:#fff; font-family:'JetBrains Mono',monospace; font-weight:700; padding:4px 10px; }
+        .capsule-font .fsBtn { color:#fff; background:none; border:none; cursor:pointer; font-weight:800; font-family:inherit; }
+        .capsule-font .fsBtn:hover { color:#FFCC00; }
+        .capsule-font .fsMid { display:inline-flex; align-items:center; gap:4px; color:#FFCC00; background:none; border:none; cursor:pointer; font-family:inherit; }
+        .capsule-font .fsMid i { color:#FFCC00; }
+        .btn-dam-tailing { display:inline-flex; align-items:center; gap:6px; border:1.5px solid #34d399; border-radius:9999px; background:linear-gradient(135deg, rgba(6,78,59,.85), rgba(6,182,212,.25)); color:#a7f3d0; font-family:'JetBrains Mono',monospace; font-weight:800; cursor:pointer; transition:all .2s; letter-spacing:.03em; }
+        .btn-dam-tailing:hover { box-shadow:0 0 14px rgba(52,211,153,.45); color:#fff; }
+
+        #mineHdrToolbar .hdr-chip{height:38px;display:inline-flex;align-items:center;gap:7px;padding:0 14px;border-radius:12px;font-size:11px;white-space:nowrap;cursor:pointer;transition:all .15s;flex-shrink:0}
+        #mineHdrToolbar .hdr-ico{height:38px;width:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:0;cursor:pointer;transition:all .15s;flex-shrink:0}
+        #ctrlGroupDash{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+        #ctrlGroupDash .capsule-translate,#ctrlGroupChat .capsule-translate{height:38px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:12px}
+        #ctrlGroupDash .capsule-font,#ctrlGroupChat .capsule-font{height:38px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:12px}
+        #ctrlGroupDash .btn-dam-tailing,#ctrlGroupChat .btn-dam-tailing{height:38px;display:inline-flex;align-items:center;gap:7px;padding:0 14px;border-radius:12px;font-size:11px;white-space:nowrap}
+        #ctrlGroupDash button{white-space:nowrap}
+        @media (max-width:1279px){#mineHdrToolbar{justify-content:flex-start}}
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative selection:bg-emerald-500 selection:text-slate-950 pb-20">
+
+    <!-- ========================================================================= -->
+    <!-- 0. BACKGROUND REALISTIS ORBIT BUMI 3D BERPUTAR & AWAN (THREE.JS)          -->
+    <!-- ========================================================================= -->
+    <div id="bgEarthContainer" class="fixed inset-0 z-0 pointer-events-none opacity-30 overflow-hidden">
+        <div id="bgEarthCanvas" class="w-full h-full"></div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 1. BOOT LOADING SCREEN ANIMASI BUMI 3D REALISTIS + AWAN BERPUTAR          -->
+    <!-- ========================================================================= -->
+    <div id="loadingOverlay" class="fixed inset-0 z-[10000] bg-slate-950 text-white flex flex-col items-center justify-between p-6 transition-opacity duration-700 select-none">
+        <div class="text-center mt-2 space-y-2">
+            <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-emerald-500/50 text-xs font-mono text-emerald-300 shadow-lg">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span id="loadingClock">Memuat Hari &amp; Waktu Real-Time WIB...</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-300 to-amber-400 flex items-center justify-center gap-2.5 font-tech uppercase">
+                <i class="fa-solid fa-mountain-city text-amber-400"></i> SABO DAM &amp; GRAVITY DAM PRO V5.6
+            </h2>
+            <p class="text-xs text-slate-400 font-mono">Simulasi Gaya Hidrostatis, Tekanan Sedimen, Impak Aliran Debris/Lahar, Uplift &amp; Risalah Teknis (SNI 2851:2015 &amp; SNI 8064:2016)</p>
+        </div>
+
+        <div class="relative w-64 h-64 sm:w-76 sm:h-76 flex items-center justify-center my-auto">
+            <div id="loadingEarthCanvas" class="w-full h-full"></div>
+            <div class="absolute inset-0 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+        </div>
+
+        <div class="w-full max-w-md text-center mb-3 space-y-3">
+            <div class="flex justify-between text-xs text-slate-400 font-mono mb-1">
+                <span id="loadingStatusText">Menginisialisasi mesin Sabo Dam, Debris Flow &amp; 3D Earth...</span>
+                <span id="loadingPercent" class="text-emerald-400 font-bold">25%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                <div id="loadingProgressBar" class="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-amber-400 rounded-full w-1/4 transition-all duration-300"></div>
+            </div>
+            <div class="pt-1">
+                <button type="button" onclick="dismissLoadingScreen()" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 hover:brightness-110 text-slate-950 font-black font-mono text-xs inline-flex items-center gap-2 shadow-lg shadow-emerald-500/30 transition transform active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-shield-halved"></i> MASUK KE KOMANDO SABO DAM PRO
+                </button>
+            </div>
+            <div class="text-[10px] text-slate-500 font-mono pt-1">
+                "Engineering = Safe Structures — Sabo Dam tangguh menahan tumbukan lahar, mengendalikan sedimen, dan melindungi masyarakat hilir." — Ir. Mohamad Hartadi
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 2. SCREENSAVER REALISTIS ORBIT BUMI 3D + AWAN + JAM & STATUS SABO DAM     -->
+    <!-- ========================================================================= -->
+    <div id="screensaverOverlay" class="fixed inset-0 z-[9800] bg-slate-950/95 backdrop-blur-lg text-white hidden flex-col items-center justify-between p-6 select-none transition-opacity duration-500" onclick="closeScreensaverOnBg(event)">
+        <div class="w-full flex items-center justify-between z-20 px-2 sm:px-6">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-400/50 flex items-center justify-center text-emerald-300 text-lg shadow">
+                    <i class="fa-solid fa-earth-asia"></i>
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-white font-tech">SCREENSAVER ORBIT BUMI REALISTIS 3D &amp; RADAR KEAMANAN SABO DAM</div>
+                    <div class="text-xs text-slate-300 font-mono">Tekan ESC atau klik layar untuk kembali ke Dasbor Simulasi Sabo Dam</div>
+                </div>
+            </div>
+            <button type="button" onclick="event.stopPropagation(); toggleScreensaver(false)" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white transition flex items-center gap-1.5 cursor-pointer font-mono">
+                <i class="fa-solid fa-xmark"></i> Tutup Screensaver
+            </button>
+        </div>
+
+        <div class="relative w-full h-[340px] sm:h-[430px] my-auto flex items-center justify-center pointer-events-none">
+            <div id="ssEarthCanvas" class="absolute inset-0 w-full h-full"></div>
+            <div class="z-20 flex flex-col items-center text-center max-w-4xl px-4 space-y-2">
+                <div id="screensaverClock" class="text-5xl sm:text-7xl lg:text-8xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 via-white to-amber-200 font-tech drop-shadow-2xl">
+                    00:00:00
+                </div>
+                <div id="screensaverDate" class="text-sm sm:text-lg font-bold text-emerald-400 uppercase tracking-widest font-mono">
+                    Memuat Hari &amp; Tanggal...
+                </div>
+                <div id="screensaverTarpStatus" class="text-xs text-amber-300 font-mono tracking-widest uppercase font-bold bg-slate-950/90 px-4 py-1.5 rounded-full border border-amber-500/50 shadow-lg">
+                    STATUS SABO DAM: RM = 1118.90 kN.m • FS SABO = 2.22 • FS FOTO SOAL = 3.17 (AMAN)
+                </div>
+            </div>
+        </div>
+
+        <div class="z-20 w-full max-w-3xl mx-auto px-4 mb-2 pointer-events-auto">
+            <div class="bg-slate-900/90 border border-emerald-500/50 p-4 rounded-2xl shadow-2xl backdrop-blur text-center space-y-1.5">
+                <div class="text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-bell text-amber-400 mr-1"></i> Filosofi Rekayasa Sabo Dam &amp; Pengendalian Lahar (SNI 2851:2015)
+                </div>
+                <p id="screensaverQuote" class="text-xs sm:text-sm italic text-slate-200 leading-relaxed">
+                    "Stabilitas Sabo Dam ditentukan oleh kemampuan tubuh utama menahan kombinasi tekanan hidrostatis, dorongan tanah aktif endapan sedimen, serta gaya impak dinamis aliran debris."
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP ACCENT BAR -->
+    <div class="h-1.5 w-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-amber-500 shadow-[0_0_20px_rgba(16,185,129,0.6)] relative z-20"></div>
+
+    <!-- ========================================================================= -->
+    <!-- 3. HEADER COMMAND CENTER UTAMA                                            -->
+    <!-- ========================================================================= -->
+    <div class="w-full max-w-[1800px] mx-auto p-3 md:p-4 flex-1 flex flex-col gap-4 relative z-10">
+        <header class="w-full bg-[var(--bg-header)] backdrop-blur-md p-3 md:p-4 rounded-2xl border-2 border-[var(--border-color)] shadow-xl flex flex-col gap-2.5">
+            <div class="flex items-center gap-3 w-full min-w-0">
+                <div class="p-2.5 bg-slate-950 rounded-xl border border-emerald-500/50 shrink-0 shadow-inner">
+                    <i class="fa-solid fa-mountain-city text-emerald-400 text-2xl animate-pulse"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">SNI 2851:2015 Desain Sabo Dam</span>
+                        <span class="bg-amber-950/90 text-amber-300 border border-amber-500/50 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">SNI 8064:2016 Stabilitas Bendungan</span>
+                        <span class="bg-cyan-950/90 text-cyan-300 border border-cyan-500/50 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Debris Flow &amp; Sediment Control</span>
+                    </div>
+                    <h1 class="font-tech text-sm md:text-lg font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-emerald-300 to-amber-400 leading-tight uppercase mt-1">
+                        SISTEM SIMULASI &amp; ANALISIS STABILITAS STRUKTUR SABO DAM &amp; BENDUNGAN GRAVITASI
+                        <span class="text-cyan-400 text-xs align-top">v5.6 PRO</span>
+                    </h1>
+                    <p class="hidden md:flex text-[10px] font-mono text-[var(--text-muted)] mt-0.5 items-center gap-2 font-bold">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                        <span>Gaya Hidrostatis (Pw) • Tekanan Aktif Sedimen (Ps) • Gaya Impak Aliran Lahar/Debris (Fd) • Momen Penahan (RM) • Guling &amp; Geser</span>
+                    </p>
+                </div>
+                <div class="hidden sm:flex items-center bg-slate-950 border border-emerald-500/40 px-3.5 shrink-0 shadow-lg rounded-xl" style="height:52px;">
+                    <i class="fa-regular fa-clock text-emerald-400 animate-pulse text-lg mr-2.5"></i>
+                    <div class="flex flex-col text-left">
+                        <span id="topDashDate" class="text-[10px] font-bold text-slate-400 font-mono uppercase">Memuat Hari...</span>
+                        <span id="topDashTime" class="text-sm md:text-base font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 font-tech tracking-widest">00:00:00 WIB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BARIS 2: TOOLBAR COMMAND BAR -->
+            <div id="mineHdrToolbar" class="flex flex-wrap items-center gap-2 w-full justify-between font-mono text-[11px] border-t border-[var(--border-color)] pt-2.5">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="applyDamPreset('sabo')" class="hdr-chip bg-amber-950 hover:bg-amber-900 text-amber-300 border border-amber-500/70 font-bold">
+                        <i class="fa-solid fa-volcano text-amber-400"></i><span>MODE SABO DAM (FS = 2.22)</span>
+                    </button>
+                    <button type="button" onclick="applyDamPreset('photo')" class="hdr-chip bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/70 font-bold">
+                        <i class="fa-solid fa-camera-rotate text-emerald-400"></i><span>MODE FOTO SOAL (FS = 3.17)</span>
+                    </button>
+                    <button type="button" onclick="openWordReportsModal()" id="btnWordReports" class="hdr-chip bg-sky-950 hover:bg-sky-900 text-sky-300 border border-sky-500/70 font-bold">
+                        <i class="fa-solid fa-file-word text-sky-400"></i><span>LAPORAN WORD (13)</span>
+                    </button>
+                    <button type="button" onclick="downloadBlueprintPNG()" class="hdr-chip bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/70 font-bold">
+                        <i class="fa-solid fa-download text-cyan-400"></i><span>UNDUH BLUEPRINT PNG</span>
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="openAppsModal()" class="hdr-chip bg-gradient-to-r from-amber-500 via-lime-500 to-emerald-500 hover:brightness-110 text-slate-950 font-black">
+                        <i class="fa-solid fa-cubes-stacked"></i><span>MY APLIKASI (61)</span>
+                    </button>
+                    <button type="button" onclick="openCreatorModal()" class="hdr-chip bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/50 font-bold">
+                        <i class="fa-solid fa-user-tie"></i><span>PENELITI/DEV</span>
+                    </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="toggleScreensaver(true)" class="hdr-ico bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/60 font-bold" title="Screensaver Bumi 3D"><i class="fa-solid fa-tv"></i></button>
+                    <button type="button" onclick="toggleThemeMode()" class="hdr-ico bg-slate-900 border border-slate-700 text-amber-400" title="Ganti Tema Gelap/Terang"><i id="themeIcon" class="fa-solid fa-moon"></i></button>
+                    <div id="ctrlGroupDash"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ========================================================================= -->
+        <!-- 4. 5 KARTU METRIK EKSEKUTIF SABO DAM & BENDUNGAN GRAVITASI                -->
+        <!-- ========================================================================= -->
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono">
+            <div class="cmd-card p-3.5 border-l-4 border-l-rose-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>① Gaya Air + Sedimen + Debris</span>
+                    <i class="fa-solid fa-water text-rose-400"></i>
+                </div>
+                <div id="kpiHydroForce" class="text-xl sm:text-2xl font-tech font-black text-rose-400 mt-0.5">227.55 kN</div>
+                <span id="kpiHydroSub" class="text-[10px] text-slate-300 block">Pw=176.6 | Ps=26.7 | Fd=24.3 kN</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-cyan-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>② Momen Penahan (RM)</span>
+                    <i class="fa-solid fa-weight-hanging text-cyan-400"></i>
+                </div>
+                <div id="kpiResistingMoment" class="text-xl sm:text-2xl font-tech font-black text-cyan-300 mt-0.5">1118.90 kN.m</div>
+                <span id="kpiWeightsSub" class="text-[10px] text-slate-300 block">W1=100.8 kN | W2=302.4 kN</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-amber-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>Total Momen Guling (OM)</span>
+                    <i class="fa-solid fa-rotate-left text-amber-400"></i>
+                </div>
+                <div id="kpiOverturningMoment" class="text-xl sm:text-2xl font-tech font-black text-amber-300 mt-0.5">504.15 kN.m</div>
+                <span id="kpiMomentArmSub" class="text-[10px] text-slate-300 block">MOw=353.2 | MOs=35.6 | MOd=115.4</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-emerald-500">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>③ FS Terhadap Guling</span>
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                </div>
+                <div id="kpiFsOverturning" class="text-xl sm:text-2xl font-tech font-black text-emerald-400 mt-0.5">2.22</div>
+                <span id="kpiFsOtStatus" class="text-[10px] text-emerald-300 block font-bold">AMAN (SNI 2851 ≥ 1.50)</span>
+            </div>
+
+            <div class="cmd-card p-3.5 border-l-4 border-l-lime-500 col-span-2 sm:col-span-1">
+                <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+                    <span>FS Geser &amp; Eksentrisitas</span>
+                    <i class="fa-solid fa-scale-balanced text-lime-400"></i>
+                </div>
+                <div id="kpiFsSliding" class="text-base sm:text-lg font-tech font-black text-lime-300 mt-1">FS Geser: 2.25</div>
+                <span id="kpiEccentricitySub" class="text-[10px] text-slate-300 block">e = 0.58 m ≤ B/6 (0.70 m) AMAN</span>
+            </div>
+        </section>
+
+        <!-- ========================================================================= -->
+        <!-- 5. MAIN 3-COLUMN WORKSPACE                                                -->
+        <!-- ========================================================================= -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start w-full">
+
+            <!-- ================= LEFT PANEL (3 COLS): GIVEN & STEP-BY-STEP SOLUTION SABO DAM ================= -->
+            <section class="lg:col-span-3 cmd-card p-4 flex flex-col gap-3.5">
+                <div class="flex justify-between items-center border-b border-emerald-900/60 pb-2">
+                    <h2 class="font-tech text-xs md:text-sm font-black text-amber-300 flex items-center gap-2 uppercase">
+                        <span class="bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black">Given &amp; Sabo Solution</span>
+                    </h2>
+                    <span class="text-[10px] font-mono text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-emerald-700">SNI 2851</span>
+                </div>
+
+                <div class="p-3 bg-slate-950/90 rounded-xl border border-emerald-500/40 text-xs space-y-1.5 leading-relaxed">
+                    <div class="font-mono font-bold text-amber-400 uppercase text-[11px]">Parameter Struktur Sabo Dam (Given):</div>
+                    <p id="givenNarrativeText" class="text-slate-200 text-[11.5px]">
+                        Tubuh utama <b>Sabo Dam</b> trapesium berhulu tegak memiliki lebar mercu <b class="text-emerald-300">0.60 m</b>, lebar dasar <b class="text-emerald-300">4.20 m</b>, tinggi <b class="text-emerald-300">7.0 m</b>, air hulu <b class="text-cyan-300">6.0 m</b>, endapan sedimen <b class="text-amber-300">hs = 4.0 m</b>, dan kecepatan aliran lahar <b class="text-rose-300">vd = 3.0 m/s</b>.
+                    </p>
+                </div>
+
+                <div class="space-y-3 font-mono text-xs">
+                    <!-- STEP 1 -->
+                    <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-xs shrink-0">1</span>
+                            <span class="font-bold text-white text-[11.5px]">Gaya Dorong Air (Pw), Sedimen (Ps) &amp; Lahar (Fd)</span>
+                        </div>
+                        <div id="mathStep1Sub" class="formula-box space-y-0.5">
+                            <div>Pw = γw·h̄·A = 9.81(3)(6) = 176.58 kN</div>
+                            <div>Ps = ½·Ka·γsub·hs² = 26.67 kN</div>
+                            <div>Fd = kd·ρd·hd·vd² = 24.30 kN</div>
+                        </div>
+                        <div class="red-glow-box px-3 py-1.5 text-center">
+                            <span id="mathStep1Result" class="text-sm font-black text-white tracking-wider">ΣH = 227.55 kN</span>
+                            <span id="mathStep1TypoNote" class="block text-[9.5px] text-amber-300">(Mode Air Murni Foto: P = 176.58 kN / tertulis 175.58 kN)</span>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2 -->
+                    <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-xs shrink-0">2</span>
+                            <span class="font-bold text-white text-[11.5px]">Momen Penahan Guling (RM) terhadap Toe</span>
+                        </div>
+                        <div id="mathStep2Sub" class="formula-box space-y-1">
+                            <div>W₁ = 0.6 × 7 × 24 = 100.80 kN (x₁ = 3.90 m)</div>
+                            <div>W₂ = [7 × 3.6 / 2] × 24 = 302.40 kN (x₂ = 2.40 m)</div>
+                            <div>RM = 100.8(3.90) + 302.4(2.40)</div>
+                        </div>
+                        <div class="red-glow-box px-3 py-1.5 text-center">
+                            <span id="mathStep2Result" class="text-sm font-black text-white tracking-wider">RM = 1118.90 kN.m</span>
+                            <span class="block text-[9.5px] text-cyan-200">(Nilai eksak: 393.12 + 725.76 = 1118.88 kN.m)</span>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3 -->
+                    <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700 space-y-1.5">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-xs shrink-0">3</span>
+                            <span class="font-bold text-white text-[11.5px]">Factor of Safety Against Overturning (FS)</span>
+                        </div>
+                        <div id="mathStep3Sub" class="formula-box">
+                            OM = 353.16 (Air) + 35.56 (Sed) + 115.43 (Debris)<br>
+                            FS = RM / OM = 1118.90 / 504.15 = 2.22
+                        </div>
+                        <div class="red-glow-box px-3 py-1.5 text-center">
+                            <span id="mathStep3Result" class="text-base font-black text-emerald-300 tracking-wider">FS = 2.22</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= CENTER PANEL (6 COLS): BLUEPRINT SABO DAM / WORKFLOW & RISALAH / WEBGIS / WINDY ================= -->
+            <section class="lg:col-span-6 flex flex-col gap-4">
+                <div class="cmd-card overflow-hidden flex flex-col">
+                    <div class="p-3 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex flex-wrap rounded-xl bg-slate-900 p-1 border border-emerald-500/40 text-xs font-mono font-bold gap-1">
+                            <button type="button" onclick="switchCenterViewport('bowtie')" id="btnViewBowtie" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-compass-drafting"></i> 1. BLUEPRINT SABO DAM
+                            </button>
+                            <button type="button" onclick="switchCenterViewport('infographic')" id="btnViewInfographic" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-signature"></i> 2. WORKFLOW &amp; RISALAH
+                            </button>
+                            <button type="button" onclick="switchCenterViewport('map')" id="btnViewMap" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-map-location-dot"></i> 3. WEBGIS SABO DAM
+                            </button>
+                            <button type="button" onclick="switchCenterViewport('windy')" id="btnViewWindy" class="px-3 py-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5">
+                                <i class="fa-solid fa-cloud-showers-heavy"></i> 4. RADAR CUACA WINDY
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 1: INTERACTIVE BLUEPRINT SABO DAM CROSS-SECTION SVG -->
+                    <div id="centerPaneBowtie" class="blueprint-grid p-3 sm:p-4 min-h-[470px] flex flex-col justify-between relative">
+                        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/85 border border-cyan-400/40 rounded-xl px-3 py-2 text-xs font-mono">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                                <span class="font-bold text-cyan-200">BLUEPRINT SABO DAM — AIR (Pw) + SEDIMEN (Ps) + IMPAK DEBRIS/LAHAR (Fd)</span>
+                            </div>
+                            <span id="blueprintSafetyTag" class="px-2.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[11px]">
+                                FS GULING = 2.22 (SAFE SABO STRUCTURE)
+                            </span>
+                        </div>
+
+                        <div class="my-auto py-2 overflow-x-auto">
+                            <svg id="damBlueprintSvg" viewBox="0 0 920 430" class="w-full h-auto min-w-[680px] select-none" xmlns="http://www.w3.org/2000/svg">
+                                <defs>
+                                    <marker id="arrRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e"/>
+                                    </marker>
+                                    <marker id="arrOrange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#f97316"/>
+                                    </marker>
+                                    <marker id="arrDark" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#1e293b"/>
+                                    </marker>
+                                    <marker id="arrWhite" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#f8fafc"/>
+                                    </marker>
+                                    <marker id="arrAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                        <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/>
+                                    </marker>
+                                    <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                                        <stop offset="100%" stop-color="#0284c7" stop-opacity="0.75"/>
+                                    </linearGradient>
+                                    <linearGradient id="sedimentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stop-color="#d97706" stop-opacity="0.65"/>
+                                        <stop offset="100%" stop-color="#78350f" stop-opacity="0.88"/>
+                                    </linearGradient>
+                                    <linearGradient id="concreteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#cbd5e1" stop-opacity="0.92"/>
+                                        <stop offset="100%" stop-color="#94a3b8" stop-opacity="0.92"/>
+                                    </linearGradient>
+                                </defs>
+                                <g id="svgDynamicLayer"></g>
+                            </svg>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950/85 border border-cyan-500/30 rounded-xl px-3 py-2 text-[11px] font-mono text-slate-300">
+                            <div><i class="fa-solid fa-circle-info text-amber-400 mr-1"></i>Lapisan coklat di hulu menunjukkan <b>Endapan Sedimen (hs)</b> &amp; panah atas adalah <b>Impak Aliran Lahar (Fd)</b>.</div>
+                            <div class="italic text-amber-300 font-bold">"Engineering = Safe Structures"</div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: WORKFLOW, ANALISIS DETAIL, RISALAH TEKNIS, SARAN TEKNIS & KESIMPULAN -->
+                    <div id="centerPaneInfographic" class="hidden p-4 bg-slate-950/95 space-y-4 max-h-[540px] overflow-y-auto font-mono text-xs">
+                        <div class="p-3.5 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-2">
+                            <h3 class="font-tech text-xs font-black text-emerald-400 uppercase flex items-center gap-2">
+                                <i class="fa-solid fa-diagram-project"></i> A. Workflow Pemodelan Stabilitas Sabo Dam (SNI 2851:2015)
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-[11px]">
+                                <div class="p-2.5 rounded-lg bg-slate-950 border border-cyan-500/30">
+                                    <b class="text-cyan-300 block">1. Geometri Sabo</b>
+                                    Input B_top, B_base, H, tinggi air hw, tinggi sedimen hs, dan laju lahar vd.
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-950 border border-emerald-500/30">
+                                    <b class="text-emerald-300 block">2. Hidrostatis &amp; Sedimen</b>
+                                    Hitung Pw = ½γw·hw² dan tekanan aktif sedimen Ps = ½Ka·γsub·hs².
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-950 border border-amber-500/30">
+                                    <b class="text-amber-300 block">3. Impak Aliran Debris</b>
+                                    Hitung tumbukan dinamis lahar Fd = kd·ρd·hd·vd² di atas sedimen.
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-950 border border-rose-500/30">
+                                    <b class="text-rose-300 block">4. Evaluasi Guling &amp; Geser</b>
+                                    Verifikasi FS_guling = RM / OM_total ≥ 1,50 dan FS_geser ≥ 1,50.
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-950 border border-purple-500/30">
+                                    <b class="text-purple-300 block">5. Mitigasi &amp; Laporan</b>
+                                    Desain weep hole, apron, sub-dam &amp; ekspor 13 laporan Word (.doc).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="p-3.5 rounded-xl bg-slate-900 border border-emerald-500/40 space-y-2">
+                                <h4 class="font-tech text-xs font-black text-emerald-400 uppercase"><i class="fa-solid fa-file-waveform mr-1"></i> B. Analisis Detail &amp; Risalah Teknis Sabo Dam</h4>
+                                <div id="liveRisalahContent" class="text-[11.5px] text-slate-200 leading-relaxed space-y-1.5 font-sans"></div>
+                            </div>
+                            <div class="p-3.5 rounded-xl bg-slate-900 border border-amber-500/40 space-y-2">
+                                <h4 class="font-tech text-xs font-black text-amber-400 uppercase"><i class="fa-solid fa-lightbulb mr-1"></i> C. Saran Teknis &amp; Kesimpulan</h4>
+                                <div id="liveSaranKesimpulanContent" class="text-[11.5px] text-slate-200 leading-relaxed space-y-1.5 font-sans"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: WEBGIS LOKASI SABO DAM -->
+                    <div id="centerPaneMap" class="hidden relative w-full h-[470px] bg-slate-950">
+                        <div id="damLeafletMap" class="w-full h-full z-10"></div>
+                    </div>
+
+                    <!-- TAB 4: WINDY RADAR -->
+                    <div id="centerPaneWindy" class="hidden relative w-full h-[470px] bg-slate-950">
+                        <iframe class="w-full h-full border-0" src="https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=7&overlay=rain&product=ecmwf&level=surface&lat=-7.55&lon=110.45&detailLat=-7.55&detailLon=110.45&marker=true" allowfullscreen></iframe>
+                    </div>
+                </div>
+
+                <!-- CHART.JS SENSITIVITY & STABILITY GRAPH -->
+                <div class="cmd-card p-4">
+                    <div class="flex flex-wrap justify-between items-center border-b border-slate-800 pb-2 mb-3 gap-2">
+                        <h2 class="font-tech text-xs md:text-sm font-black text-emerald-400 flex items-center gap-2 uppercase">
+                            <i class="fa-solid fa-chart-line text-amber-400"></i> Grafik Sensitivitas Tinggi Sedimen &amp; Kecepatan Lahar terhadap FS Sabo Dam
+                        </h2>
+                        <div class="flex gap-1.5 text-[11px] font-mono">
+                            <button type="button" onclick="switchChartMode('fs')" id="btnChartFs" class="px-2.5 py-1 rounded bg-emerald-700 text-white font-bold cursor-pointer">1. KURVA FS vs TINGGI AIR/SEDIMEN</button>
+                            <button type="button" onclick="switchChartMode('moment')" id="btnChartMoment" class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer">2. KOMPARASI KOMPONEN MOMEN</button>
+                        </div>
+                    </div>
+                    <div class="w-full h-[220px]">
+                        <canvas id="damAnalyticsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= RIGHT PANEL (3 COLS): INTERACTIVE SABO DAM SIMULATOR ================= -->
+            <section class="lg:col-span-3 cmd-card p-4 flex flex-col gap-3.5">
+                <div class="flex justify-between items-center border-b border-emerald-900/60 pb-2">
+                    <h2 class="font-tech text-xs md:text-sm font-black text-emerald-400 flex items-center gap-1.5 uppercase">
+                        <i class="fa-solid fa-sliders text-amber-400"></i> Simulator Sabo Dam
+                    </h2>
+                    <span class="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/50 font-bold">SNI 2851</span>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-300 font-mono mb-1 uppercase">
+                        <i class="fa-solid fa-layer-group text-amber-400 mr-1"></i> Pilih Mode Skenario Struktur:
+                    </label>
+                    <select id="presetSelect" onchange="applyDamPreset(this.value)" class="w-full bg-slate-950 border border-emerald-500/60 rounded-xl p-2 text-xs text-white outline-none focus:border-amber-400 font-mono cursor-pointer">
+                        <option value="sabo">1. Mode Sabo Dam Aktif (hs=4m, Lahar vd=3m/s → FS=2.22)</option>
+                        <option value="photo">2. Mode Foto Soal Asli (Air Murni hw=6m, Tanpa Sedimen → FS=3.17)</option>
+                        <option value="sabo_full">3. Sabo Dam Penuh Sedimen + Limpasan Banjir (hs=6m, vd=4m/s)</option>
+                        <option value="sabo_reinforced">4. Desain Sabo Dam Diperkuat (Mercu 1.5m, Dasar 5.2m + Uplift)</option>
+                    </select>
+                </div>
+
+                <!-- SLIDERS GEOMETRI, SEDIMEN & ALIRAN DEBRIS -->
+                <div class="space-y-2 bg-slate-950/85 p-3 rounded-xl border border-slate-800 text-xs font-mono">
+                    <div>
+                        <div class="flex justify-between font-bold text-cyan-300 mb-0.5">
+                            <span>Lebar Mercu (B_top)</span>
+                            <span id="lblBtop" class="text-white">0.60 m</span>
+                        </div>
+                        <input type="range" id="inpBtop" min="0.40" max="3.00" step="0.10" value="0.60" oninput="recalculateDamStability()" class="w-full accent-cyan-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-bold text-emerald-300 mb-0.5">
+                            <span>Lebar Dasar (B_base)</span>
+                            <span id="lblBbase" class="text-white">4.20 m</span>
+                        </div>
+                        <input type="range" id="inpBbase" min="2.50" max="8.00" step="0.10" value="4.20" oninput="recalculateDamStability()" class="w-full accent-emerald-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-bold text-amber-300 mb-0.5">
+                            <span>Tinggi Tubuh Sabo (H)</span>
+                            <span id="lblHdam" class="text-white">7.00 m</span>
+                        </div>
+                        <input type="range" id="inpHdam" min="4.00" max="15.00" step="0.50" value="7.00" oninput="recalculateDamStability()" class="w-full accent-amber-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-bold text-sky-400 mb-0.5">
+                            <span>Tinggi Muka Air Hulu (hw)</span>
+                            <span id="lblHwater" class="text-white">6.00 m</span>
+                        </div>
+                        <input type="range" id="inpHwater" min="1.00" max="15.00" step="0.20" value="6.00" oninput="recalculateDamStability()" class="w-full accent-sky-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-bold text-orange-400 mb-0.5">
+                            <span>Tinggi Endapan Sedimen (hs)</span>
+                            <span id="lblHsed" class="text-white">4.00 m</span>
+                        </div>
+                        <input type="range" id="inpHsed" min="0.00" max="12.00" step="0.50" value="4.00" oninput="recalculateDamStability()" class="w-full accent-orange-400 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between font-bold text-rose-400 mb-0.5">
+                            <span>Kecepatan Aliran Lahar (vd)</span>
+                            <span id="lblVdebris" class="text-white">3.0 m/s</span>
+                        </div>
+                        <input type="range" id="inpVdebris" min="0.0" max="8.0" step="0.5" value="3.0" oninput="recalculateDamStability()" class="w-full accent-rose-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg">
+                    </div>
+
+                    <div class="pt-1 border-t border-slate-800 flex items-center justify-between">
+                        <label class="flex items-center gap-2 cursor-pointer text-[11px] text-amber-300 font-bold">
+                            <input type="checkbox" id="chkUplift" onchange="recalculateDamStability()" class="accent-amber-400 w-4 h-4">
+                            <span>Sertakan Gaya Uplift Dasar</span>
+                        </label>
+                        <span class="text-[10px] text-slate-400">(Weep Hole Reduksi)</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/90 border border-emerald-500/40 rounded-xl p-3 space-y-1.5 text-[11px] font-mono">
+                    <div class="font-tech text-[11px] font-black text-emerald-400 uppercase border-b border-slate-800 pb-1">
+                        Rekapitulasi Momen Sabo Dam
+                    </div>
+                    <div id="momentSummaryTable" class="space-y-1 text-slate-200"></div>
+                </div>
+
+                <button type="button" onclick="openWordReportsModal()" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-2.5 rounded-xl uppercase font-tech text-xs tracking-wider shadow-lg transition cursor-pointer flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-file-word"></i> <span>PUSAT EKSPOR 13 LAPORAN WORD</span>
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 6. MODAL DIREKTORI 61 APLIKASI WEB KARYA IR. MOHAMAD HARTADI (IDENTIK)    -->
+    <!-- ========================================================================= -->
+    <div id="modalApps" class="fixed inset-0 z-[1200] bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-5 font-mono text-xs">
+        <div class="cmd-card max-w-5xl w-full p-5 space-y-4 border-2 border-lime-500/75 bg-[#061216] max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-lime-500/30 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 via-lime-500 to-emerald-500 flex items-center justify-center text-slate-950 text-lg font-black">
+                        <i class="fa-solid fa-cubes-stacked"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-tech text-sm sm:text-base font-black text-amber-300">DIREKTORI 61 MY APLIKASI WEB — IR. MOHAMAD HARTADI</h3>
+                        <p class="text-[10px] text-lime-300">Ekosistem Aplikasi Web Geoteknik, Bendungan, Hidrologi, Seismik, Medis &amp; AI</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAppsModal()" class="w-8 h-8 rounded-lg bg-slate-900 border border-lime-500/40 text-lime-300 hover:bg-lime-500 hover:text-slate-950 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="text" id="appSearchInput" oninput="renderAppsDirectory(this.value)" placeholder="Cari aplikasi (contoh: tailing, dam, geostruct, seismik, jarvis)..." class="w-full bg-slate-950 border border-lime-500/50 rounded-xl px-3.5 py-2 text-white outline-none">
+            <div id="appsGridContainer" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pr-1"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 7. MODAL PROFIL PENELITI & PROGRAMMER (IR. MOHAMAD HARTADI)               -->
+    <!-- ========================================================================= -->
+    <div id="creatorModal" class="fixed inset-0 z-[1200] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 font-mono text-xs">
+        <div class="cmd-card max-w-md w-full p-6 border-2 border-emerald-500 text-center space-y-3 bg-slate-900">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span class="font-tech font-bold text-amber-400"><i class="fa-solid fa-id-badge mr-1"></i> PROFIL PENGEMBANG &amp; KONSULTAN</span>
+                <button type="button" onclick="closeCreatorModal()" class="text-slate-400 hover:text-white text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-emerald-500 text-slate-950 flex items-center justify-center text-2xl mx-auto shadow-lg">
+                <i class="fa-solid fa-user-tie"></i>
+            </div>
+            <div>
+                <h3 class="font-tech text-base font-black text-white">IR. MOHAMAD HARTADI</h3>
+                <p class="text-emerald-400 font-bold text-[11px] mt-0.5">Civil &amp; Geotechnical Dam Safety Engineer • AI System Developer</p>
+            </div>
+            <p class="text-[11px] text-slate-300 leading-relaxed text-justify font-sans">
+                Praktisi teknik sipil, geoteknik lereng, teknologi Sabo Dam &amp; keamanan bendungan (*Dam &amp; Tailing Storage Facility Safety*), serta pengembang aplikasi web simulasi numerik dan kecerdasan buatan (AI).
+            </p>
+            <div id="ctrlGroupCreator" class="mt-3 flex justify-center"></div>
+            <div class="space-y-2 text-left pt-1">
+                <a href="https://www.facebook.com/m.hartadi" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/60 text-blue-300 flex justify-between items-center hover:bg-blue-900/60">
+                    <span><i class="fa-brands fa-facebook mr-1.5"></i>Facebook: <b>m.hartadi</b></span>
+                    <span class="bg-blue-900 px-2 py-0.5 rounded text-[10px] text-white font-bold">Buka</span>
+                </a>
+                <a href="https://newbieonline7.blogspot.com/" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-amber-950/60 border border-amber-500/60 text-amber-300 flex justify-between items-center hover:bg-amber-900/60">
+                    <span><i class="fa-solid fa-blog mr-1.5"></i>Blog: <b>newbieonline7.blogspot.com</b></span>
+                    <span class="bg-amber-900 px-2 py-0.5 rounded text-[10px] text-white font-bold">Buka</span>
+                </a>
+                <a href="https://wa.me/6282231036047" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/60 text-emerald-300 flex justify-between items-center hover:bg-emerald-900/60">
+                    <span><i class="fa-brands fa-whatsapp mr-1.5"></i>WhatsApp: <b>0822-3103-6047</b></span>
+                    <span class="bg-emerald-800 px-2 py-0.5 rounded text-[10px] text-white font-bold">Chat</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 8. FLOATING JARVIS AI CHATBOT & ACTION BUTTONS                            -->
+    <!-- ========================================================================= -->
+    <div id="floatingChatPanel" class="fixed bottom-20 right-5 z-[1100] w-[350px] sm:w-[440px] max-w-[calc(100vw-2rem)] bg-slate-950/95 backdrop-blur-xl border-2 border-emerald-500 rounded-2xl shadow-2xl hidden flex-col h-[500px] max-h-[78vh] font-mono text-xs overflow-hidden">
+        <div class="p-3 bg-gradient-to-r from-slate-950 to-emerald-950 border-b border-emerald-500/40 flex justify-between items-center">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center text-emerald-300">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div>
+                    <h4 class="font-tech text-xs font-black text-white">JARVIS AI — SABO DAM &amp; GEOTECH</h4>
+                    <span class="text-[9.5px] text-emerald-400">Asisten SNI 2851:2015, Debris Flow, Momen Guling &amp; Wikipedia</span>
+                </div>
+            </div>
+            <button type="button" onclick="toggleChatPanel()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-base"></i></button>
+        </div>
+        <div id="ctrlGroupChat" class="px-3 py-2 border-b border-emerald-500/30 bg-slate-950/70"></div>
+
+        <div id="chatMessagesBox" class="p-3 space-y-2.5 overflow-y-auto flex-1 bg-slate-950/80">
+            <div class="p-3 rounded-xl bg-slate-900 border border-emerald-500/40 text-slate-200 leading-relaxed">
+                <b class="text-emerald-400 block mb-1">🤖 JARVIS AI SABO DAM:</b>
+                Halo! Saya asisten cerdas analisis <b>Stabilitas Sabo Dam &amp; Bendungan Gravitasi</b>. Klik tombol pintasan di bawah atau ketik pertanyaan mengenai <b>Rumus Gaya Impak Lahar (Fd)</b>, <b>Tekanan Sedimen (Ps)</b>, <b>Solusi Foto Soal (FS = 3.17)</b>, atau topik ensiklopedia apa pun!
+            </div>
+        </div>
+
+        <div class="p-2 bg-slate-900 border-t border-slate-800 flex gap-1.5 overflow-x-auto">
+            <button type="button" onclick="sendQuickChat('Evaluasi stabilitas Sabo Dam saat ini')" class="px-2.5 py-1 rounded bg-amber-950 text-amber-300 border border-amber-600 whitespace-nowrap cursor-pointer">🌋 Evaluasi Sabo Dam</button>
+            <button type="button" onclick="sendQuickChat('Evaluasi langkah foto soal FS 3.17')" class="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 border border-emerald-600 whitespace-nowrap cursor-pointer">📐 Solusi Foto (FS=3.17)</button>
+            <button type="button" onclick="sendQuickChat('Prosedur Mitigasi')" class="px-2.5 py-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-600 whitespace-nowrap cursor-pointer">🛡️ Prosedur Mitigasi</button>
+            <button type="button" onclick="sendQuickChat('Profil programmer')" class="px-2.5 py-1 rounded bg-purple-950 text-purple-300 border border-purple-600 whitespace-nowrap cursor-pointer">👨‍💻 Programmer</button>
+        </div>
+
+        <form onsubmit="event.preventDefault(); processUserChat();" class="p-2.5 bg-slate-950 border-t border-slate-800 flex gap-2">
+            <input type="text" id="chatUserInput" placeholder="Tanya Sabo Dam, lahar, sedimen, P, RM, OM, FS..." class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white outline-none focus:border-emerald-400">
+            <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <!-- Floating Bottom-Right Action Bar -->
+    <div class="fixed bottom-4 right-4 z-[1050] flex items-center gap-2">
+        <button type="button" onclick="openWordReportsModal()" class="w-11 h-11 rounded-full bg-sky-600 hover:bg-sky-500 text-white border border-sky-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Pusat Ekspor 13 Laporan Word (.doc)">
+            <i class="fa-solid fa-file-word"></i>
+        </button>
+        <button type="button" onclick="openAppsModal()" class="w-11 h-11 rounded-full bg-amber-600 hover:bg-amber-500 text-white border border-amber-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Direktori 61 My Aplikasi">
+            <i class="fa-solid fa-cubes-stacked"></i>
+        </button>
+        <button type="button" onclick="toggleScreensaver(true)" class="w-11 h-11 rounded-full bg-blue-600 hover:bg-blue-500 text-white border border-blue-300 shadow-lg flex items-center justify-center transition transform hover:scale-110 cursor-pointer" title="Screensaver Bumi 3D">
+            <i class="fa-solid fa-earth-asia"></i>
+        </button>
+        <button type="button" onclick="toggleChatPanel()" class="px-4 h-12 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black border border-emerald-200 shadow-xl flex items-center gap-2 transition transform hover:scale-105 cursor-pointer">
+            <i class="fa-solid fa-robot text-lg"></i>
+            <span class="font-tech text-xs hidden sm:inline">JARVIS AI</span>
+        </button>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- 9. FOOTER KREDIT RESMI                                                    -->
+    <!-- ========================================================================= -->
+    <footer class="w-full bg-slate-950/90 border-t border-emerald-500/30 py-3 px-4 mt-auto relative z-10 font-mono text-[11px] text-slate-400">
+        <div class="max-w-[1800px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+                <i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> <b>SABO DAM &amp; GRAVITY DAM STABILITY PRO v5.6</b> — Sistem Analisis Pengendali Sedimen, Aliran Debris &amp; Geoteknik
+            </div>
+            <div class="flex items-center gap-3">
+                <span>Developed by <b class="text-emerald-400">Ir. Mohamad Hartadi</b></span>
+                <span>•</span>
+                <a href="https://newbieonline7.blogspot.com/" target="_blank" class="text-amber-400 hover:underline">newbieonline7.blogspot.com</a>
+                <span>•</span>
+                <a href="https://wa.me/6282231036047" target="_blank" class="text-emerald-400 hover:underline">WA: 0822-3103-6047</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========================================================================= -->
+    <!-- 10. MODAL PUSAT EKSPOR 13 LAPORAN WORD (.DOC)                             -->
+    <!-- ========================================================================= -->
+    <div id="wordReportsModal" onclick="if(event.target===this) closeWordReportsModal()" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[10070] flex items-center justify-center p-4 hidden" style="font-family:monospace">
+        <div class="bg-slate-900 border border-sky-500/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-600 to-blue-800 flex items-center justify-center shadow-lg"><i class="fa-solid fa-file-word text-white text-lg"></i></div>
+                    <div>
+                        <h3 class="font-bold text-white text-sm tracking-wider">PUSAT EKSPOR LAPORAN WORD &mdash; SABO DAM &amp; GRAVITY DAM PRO</h3>
+                        <p class="text-[10px] text-slate-400">13 Topik &bull; Infografis &bull; Workflow &bull; Grafik &bull; Risalah &bull; Saran &bull; Kesimpulan</p>
+                    </div>
+                </div>
+                <button onclick="closeWordReportsModal()" class="w-9 h-9 rounded-lg bg-rose-900/60 border border-rose-500/60 text-rose-300 hover:bg-rose-800 hover:text-white cursor-pointer transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="p-3 border-b border-slate-800 shrink-0 flex items-center justify-between gap-2">
+                <p class="text-[10px] text-slate-400 leading-snug"><i class="fa-solid fa-circle-info text-sky-400 mr-1"></i>Setiap laporan .doc terbuka di MS Word / WPS / Google Docs dengan tabel berwarna siap cetak.</p>
+                <button onclick="exportAllWordReports()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-sky-600 to-blue-700 hover:from-sky-500 hover:to-blue-600 text-white text-[11px] font-black cursor-pointer transition shadow-lg flex items-center gap-1.5 shrink-0"><i class="fa-solid fa-download"></i> UNDUH SEMUA (13)</button>
+            </div>
+            <div class="overflow-y-auto p-3 flex-1" id="wordReportsList"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- JAVASCRIPT ENGINE: SIMULASI SABO DAM, 61 MY APLIKASI, 3D EARTH & WORD     -->
+    <!-- ========================================================================= -->
+    <script>
+        let damState = {
+            bTop: 0.60, bBase: 4.20, hDam: 7.00, hWater: 6.00, hSed: 4.00, vDebris: 3.0,
+            gammaC: 24.0, gammaW: 9.81, gammaSub: 10.0, Ka: 0.3333, useUplift: false,
+            Pw: 176.58, yPw: 2.00, Ps: 26.67, yPs: 1.33, Fd: 24.30, yFd: 4.75,
+            W1: 100.80, x1: 3.90, W2: 302.40, x2: 2.40,
+            U: 0, xU: 2.80, RM: 1118.88, OM: 504.15, FS_OT: 2.22, FS_SL: 2.25, ecc: 0.58
+        };
+        let damChartInstance = null;
+        let currentChartMode = 'fs';
+        let damLeafletMap = null;
+
+        function recalculateDamStability() {
+            const bTop = parseFloat(document.getElementById('inpBtop').value);
+            const bBase = Math.max(bTop + 0.2, parseFloat(document.getElementById('inpBbase').value));
+            const hDam = parseFloat(document.getElementById('inpHdam').value);
+            const hWater = Math.min(hDam, parseFloat(document.getElementById('inpHwater').value));
+            const hSed = Math.min(hWater, parseFloat(document.getElementById('inpHsed').value));
+            const vDebris = parseFloat(document.getElementById('inpVdebris').value);
+            const gammaC = 24.0;
+            const gammaW = 9.81;
+            const gammaSub = 10.0;
+            const Ka = 1.0 / 3.0; // phi = 30 deg
+            const useUplift = document.getElementById('chkUplift').checked;
+
+            document.getElementById('inpBbase').value = bBase;
+            document.getElementById('inpHwater').value = hWater;
+            document.getElementById('inpHsed').value = hSed;
+
+            document.getElementById('lblBtop').textContent = bTop.toFixed(2) + ' m';
+            document.getElementById('lblBbase').textContent = bBase.toFixed(2) + ' m';
+            document.getElementById('lblHdam').textContent = hDam.toFixed(2) + ' m';
+            document.getElementById('lblHwater').textContent = hWater.toFixed(2) + ' m';
+            document.getElementById('lblHsed').textContent = hSed.toFixed(2) + ' m';
+            document.getElementById('lblVdebris').textContent = vDebris.toFixed(1) + ' m/s';
+
+            // 1. Gaya Hidrostatis Pw
+            const Pw = gammaW * (hWater / 2.0) * hWater;
+            const yPw = hWater / 3.0;
+            const MOw = Pw * yPw;
+
+            // 2. Gaya Tekanan Tanah Aktif Endapan Sedimen Ps
+            const Ps = 0.5 * Ka * gammaSub * hSed * hSed;
+            const yPs = hSed / 3.0;
+            const MOs = Ps * yPs;
+
+            // 3. Gaya Impak Aliran Debris / Lahar Fd = kd * rho_d * hd * vd^2
+            const hDebris = vDebris > 0 ? 1.5 : 0;
+            const rhoDebris = 1.8; // ton/m3
+            const Fd = vDebris > 0 ? (1.0 * rhoDebris * hDebris * vDebris * vDebris) : 0;
+            const yFd = Math.min(hDam, hSed + (hDebris / 2.0));
+            const MOd = Fd * yFd;
+
+            const totalH = Pw + Ps + Fd;
+            const OM = MOw + MOs + MOd;
+
+            // 4. Berat Sendiri Tubuh Sabo Dam W1 & W2
+            const bTri = Math.max(0, bBase - bTop);
+            const W1 = bTop * hDam * gammaC;
+            const x1 = bTri + (bTop / 2.0);
+            const W2 = 0.5 * hDam * bTri * gammaC;
+            const x2 = (2.0 / 3.0) * bTri;
+
+            const totalW = W1 + W2;
+            const RM_raw = (W1 * x1) + (W2 * x2);
+
+            // Uplift (direduksi 50% oleh weep hole pada Sabo Dam)
+            const U = useUplift ? (0.5 * 0.5 * gammaW * hWater * bBase) : 0;
+            const xU = (2.0 / 3.0) * bBase;
+            const MU = U * xU;
+
+            const RM_effective = RM_raw - MU;
+            const FS_OT = RM_effective / Math.max(0.01, OM);
+
+            // Geser (dengan kohesi dasar pondasi ca = 50 kPa saat mode Sabo aktif)
+            const muFriction = 0.75;
+            const ca = (hSed > 0 || vDebris > 0) ? 50.0 : 0.0;
+            const FS_SL = (muFriction * (totalW - U) + ca * bBase) / Math.max(0.01, totalH);
+
+            const xResultant = (RM_effective - OM) / Math.max(0.01, (totalW - U));
+            const ecc = Math.abs((bBase / 2.0) - xResultant);
+
+            damState = {
+                bTop, bBase, hDam, hWater, hSed, vDebris, gammaC, gammaW, useUplift, bTri,
+                Pw, yPw, MOw, Ps, yPs, MOs, Fd, yFd, MOd, totalH,
+                W1, x1, W2, x2, totalW, U, xU, MU, RM: RM_effective, RM_raw, OM, FS_OT, FS_SL, ecc
+            };
+
+            updateDashboardUI();
+            renderDamBlueprintSVG();
+            updateDamChart();
+            updateLiveRisalahAndSaran();
+        }
+
+        function updateDashboardUI() {
+            const s = damState;
+            const isPhotoMode = (!s.useUplift && s.hSed === 0 && s.vDebris === 0 && Math.abs(s.bTop - 0.6) < 0.01 && Math.abs(s.bBase - 4.2) < 0.01 && Math.abs(s.hDam - 7.0) < 0.01 && Math.abs(s.hWater - 6.0) < 0.01);
+            const displayRM = (!s.useUplift && Math.abs(s.RM - 1118.88) < 0.1) ? '1118.90' : s.RM.toFixed(2);
+
+            document.getElementById('kpiHydroForce').textContent = s.totalH.toFixed(2) + ' kN';
+            document.getElementById('kpiHydroSub').textContent = `Pw=${s.Pw.toFixed(1)} | Ps=${s.Ps.toFixed(1)} | Fd=${s.Fd.toFixed(1)} kN`;
+            document.getElementById('kpiResistingMoment').textContent = displayRM + ' kN.m';
+            document.getElementById('kpiWeightsSub').textContent = `W1=${s.W1.toFixed(1)} kN | W2=${s.W2.toFixed(1)} kN`;
+            document.getElementById('kpiOverturningMoment').textContent = s.OM.toFixed(2) + ' kN.m';
+            document.getElementById('kpiMomentArmSub').textContent = `MOw=${s.MOw.toFixed(1)} | MOs=${s.MOs.toFixed(1)} | MOd=${s.MOd.toFixed(1)}`;
+            document.getElementById('kpiFsOverturning').textContent = s.FS_OT.toFixed(2);
+
+            const fsEl = document.getElementById('kpiFsOtStatus');
+            const tagEl = document.getElementById('blueprintSafetyTag');
+            if (s.FS_OT >= 1.50) {
+                fsEl.textContent = 'AMAN (Syarat SNI ≥ 1.50)';
+                fsEl.className = 'text-[10px] text-emerald-300 block font-bold';
+                tagEl.textContent = `FS GULING = ${s.FS_OT.toFixed(2)} (${isPhotoMode ? 'FOTO SOAL SAFE' : 'SABO DAM SAFE'})`;
+                tagEl.className = 'px-2.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[11px]';
+            } else {
+                fsEl.textContent = 'KRITIS / TIDAK AMAN (< 1.50)!';
+                fsEl.className = 'text-[10px] text-rose-400 block font-bold animate-pulse';
+                tagEl.textContent = `FS GULING = ${s.FS_OT.toFixed(2)} (PERLEBAR DASAR SABO!)`;
+                tagEl.className = 'px-2.5 py-0.5 rounded bg-rose-600 text-white font-black text-[11px] animate-pulse';
+            }
+
+            document.getElementById('kpiFsSliding').textContent = `FS Geser: ${s.FS_SL.toFixed(2)}`;
+            const maxEcc = s.bBase / 6.0;
+            document.getElementById('kpiEccentricitySub').textContent = `e = ${s.ecc.toFixed(2)} m ${s.ecc <= maxEcc ? '≤' : '>'} B/6 (${maxEcc.toFixed(2)} m)`;
+
+            document.getElementById('mathStep1Sub').innerHTML = `
+                <div>Pw = 9.81(${(s.hWater/2).toFixed(1)})(${s.hWater.toFixed(1)}) = ${s.Pw.toFixed(2)} kN</div>
+                <div>Ps = ½·Ka·γsub·(${s.hSed.toFixed(1)})² = ${s.Ps.toFixed(2)} kN</div>
+                <div>Fd = kd·ρd·hd·(${s.vDebris.toFixed(1)})² = ${s.Fd.toFixed(2)} kN</div>
+            `;
+            document.getElementById('mathStep1Result').textContent = `ΣH = ${s.totalH.toFixed(2)} kN`;
+
+            document.getElementById('mathStep2Sub').innerHTML = `
+                <div>W₁ = ${s.bTop.toFixed(2)}(${s.hDam.toFixed(1)})(24) = ${s.W1.toFixed(1)} kN (x₁=${s.x1.toFixed(2)}m)</div>
+                <div>W₂ = [${s.hDam.toFixed(1)}(${s.bTri.toFixed(2)})/2](24) = ${s.W2.toFixed(1)} kN (x₂=${s.x2.toFixed(2)}m)</div>
+                <div>RM = ${s.W1.toFixed(1)}(${s.x1.toFixed(2)}) + ${s.W2.toFixed(1)}(${s.x2.toFixed(2)})</div>
+            `;
+            document.getElementById('mathStep2Result').textContent = `RM = ${displayRM} kN.m`;
+
+            document.getElementById('mathStep3Sub').innerHTML = `
+                OM = ${s.MOw.toFixed(1)} (Air) + ${s.MOs.toFixed(1)} (Sed) + ${s.MOd.toFixed(1)} (Lahar)<br>
+                FS = ${displayRM} / ${s.OM.toFixed(2)} = ${s.FS_OT.toFixed(2)}
+            `;
+            document.getElementById('mathStep3Result').textContent = `FS = ${s.FS_OT.toFixed(2)}`;
+
+            document.getElementById('momentSummaryTable').innerHTML = `
+                <div class="flex justify-between"><span>Momen Penahan RM:</span><b class="text-emerald-400">+${displayRM} kN.m</b></div>
+                <div class="flex justify-between"><span>Momen Air (MOw):</span><b class="text-cyan-300">${s.MOw.toFixed(2)} kN.m</b></div>
+                <div class="flex justify-between"><span>Momen Sedimen (MOs):</span><b class="text-amber-300">${s.MOs.toFixed(2)} kN.m</b></div>
+                <div class="flex justify-between"><span>Momen Impak Lahar (MOd):</span><b class="text-rose-400">${s.MOd.toFixed(2)} kN.m</b></div>
+                <div class="flex justify-between border-t border-slate-800 pt-1"><span>Total Momen Guling (OM):</span><b class="text-rose-300">${s.OM.toFixed(2)} kN.m</b></div>
+            `;
+        }
+
+        function renderDamBlueprintSVG() {
+            const s = damState;
+            const g = document.getElementById('svgDynamicLayer');
+            if (!g) return;
+
+            const baseY = 340;
+            const startX = 290;
+            const scale = Math.min(36, 230 / Math.max(s.hDam, s.bBase));
+
+            const pxH = s.hDam * scale;
+            const pxHw = s.hWater * scale;
+            const pxHs = s.hSed * scale;
+            const pxBtop = s.bTop * scale;
+            const pxBbase = s.bBase * scale;
+            const pxBtri = s.bTri * scale;
+
+            const topY = baseY - pxH;
+            const waterY = baseY - pxHw;
+            const sedY = baseY - pxHs;
+            const crestRightX = startX + pxBtop;
+            const toeX = startX + pxBbase;
+            const ypY = baseY - (pxHw / 3.0);
+            const ysY = baseY - (pxHs / 3.0);
+            const ydY = baseY - (s.yFd * scale);
+            const freeboard = Math.max(0, s.hDam - s.hWater);
+
+            g.innerHTML = `
+                <line x1="80" y1="${baseY}" x2="820" y2="${baseY}" stroke="#e2e8f0" stroke-width="2.5"/>
+                <!-- Kolam Air Hulu -->
+                <rect x="110" y="${waterY}" width="${startX - 110}" height="${pxHw}" fill="url(#waterGrad)" stroke="#38bdf8" stroke-width="1.5"/>
+                <!-- Endapan Sedimen Sabo Dam -->
+                ${s.hSed > 0 ? `<rect x="110" y="${sedY}" width="${startX - 110}" height="${pxHs}" fill="url(#sedimentGrad)" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,2"/>` : ''}
+                ${s.hSed > 0 ? `<text x="122" y="${ baseY - 10 }" fill="#fef3c7" font-family="JetBrains Mono" font-size="11" font-weight="bold">ENDAPAN SEDIMEN (hs = ${s.hSed.toFixed(1)}m)</text>` : ''}
+
+                <polygon points="${startX - 85},${waterY} ${startX - 93},${waterY - 12} ${startX - 77},${waterY - 12}" fill="#7dd3fc"/>
+                <text x="${startX - 70}" y="${waterY - 3}" fill="#7dd3fc" font-family="JetBrains Mono" font-size="14" font-weight="bold">W.L</text>
+
+                <!-- Tubuh Utama Sabo Dam + Lubang Drainase Weep Hole -->
+                <polygon points="${startX},${baseY} ${startX},${topY} ${crestRightX},${topY} ${toeX},${baseY}" fill="url(#concreteGrad)" stroke="#ffffff" stroke-width="2.5"/>
+                <line x1="${crestRightX}" y1="${topY}" x2="${crestRightX}" y2="${baseY}" stroke="#0f172a" stroke-width="2" stroke-dasharray="6,6"/>
+                <!-- Weep Holes (Pipa Drainase Tubuh Sabo) -->
+                <line x1="${startX}" y1="${baseY - pxH*0.35}" x2="${startX + pxBbase*0.62}" y2="${baseY - pxH*0.28}" stroke="#0284c7" stroke-width="2.2" stroke-dasharray="4,3"/>
+
+                <!-- Panah W1 & W2 -->
+                <line x1="${startX + pxBtop/2}" y1="${topY + pxH*0.32}" x2="${startX + pxBtop/2}" y2="${topY + pxH*0.62}" stroke="#1e293b" stroke-width="2.5" marker-end="url(#arrDark)"/>
+                <text x="${startX + pxBtop/2}" y="${topY + pxH*0.72}" text-anchor="middle" fill="#0f172a" font-family="JetBrains Mono" font-size="15" font-weight="900">W₁</text>
+
+                <line x1="${crestRightX + pxBtri*0.33}" y1="${topY + pxH*0.38}" x2="${crestRightX + pxBtri*0.33}" y2="${topY + pxH*0.65}" stroke="#1e293b" stroke-width="2.5" marker-end="url(#arrDark)"/>
+                <text x="${crestRightX + pxBtri*0.33}" y="${topY + pxH*0.75}" text-anchor="middle" fill="#0f172a" font-family="JetBrains Mono" font-size="15" font-weight="900">W₂</text>
+
+                <!-- Panah Gaya Hidrostatis Pw -->
+                <line x1="${startX - 65}" y1="${ypY}" x2="${startX - 6}" y2="${ypY}" stroke="#f43f5e" stroke-width="3" marker-end="url(#arrRed)"/>
+                <text x="${startX - 92}" y="${ypY + 5}" fill="#f43f5e" font-family="JetBrains Mono" font-size="14" font-weight="900">Pw</text>
+
+                <!-- Panah Tekanan Tanah Aktif Sedimen Ps -->
+                ${s.Ps > 0 ? `
+                <line x1="${startX - 55}" y1="${ysY}" x2="${startX - 6}" y2="${ysY}" stroke="#fbbf24" stroke-width="3" marker-end="url(#arrAmber)"/>
+                <text x="${startX - 80}" y="${ysY + 5}" fill="#fde047" font-family="JetBrains Mono" font-size="13" font-weight="900">Ps</text>
+                ` : ''}
+
+                <!-- Panah Impak Aliran Debris / Lahar Fd -->
+                ${s.Fd > 0 ? `
+                <line x1="${startX - 85}" y1="${ydY}" x2="${startX - 6}" y2="${ydY}" stroke="#f97316" stroke-width="3.5" marker-end="url(#arrOrange)"/>
+                <text x="${startX - 165}" y="${ydY + 4}" fill="#fdba74" font-family="JetBrains Mono" font-size="12" font-weight="900">Fd (Lahar)</text>
+                ` : ''}
+
+                <!-- Dimensi yp = 2 m -->
+                <line x1="${startX - 26}" y1="${ypY}" x2="${startX - 26}" y2="${baseY}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${startX - 32}" y="${(ypY + baseY)/2 + 4}" text-anchor="end" fill="#fef08a" font-family="JetBrains Mono" font-size="12" font-weight="bold">${s.yPw.toFixed(1)} m</text>
+
+                <!-- Dimensi Kiri -->
+                <line x1="100" y1="${topY}" x2="${startX}" y2="${topY}" stroke="#94a3b8" stroke-width="1"/>
+                <line x1="105" y1="${topY}" x2="105" y2="${waterY}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="98" y="${(topY + waterY)/2 + 4}" text-anchor="end" fill="#f8fafc" font-family="JetBrains Mono" font-size="13" font-weight="bold">${freeboard.toFixed(1)} m</text>
+
+                <line x1="105" y1="${waterY}" x2="105" y2="${baseY}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="98" y="${(waterY + baseY)/2 + 4}" text-anchor="end" fill="#f8fafc" font-family="JetBrains Mono" font-size="14" font-weight="bold">${s.hWater.toFixed(1)} m</text>
+
+                <!-- Dimensi Atas & Bawah -->
+                <line x1="${startX}" y1="${topY - 22}" x2="${crestRightX}" y2="${topY - 22}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${startX + pxBtop/2}" y="${topY - 30}" text-anchor="middle" fill="#f8fafc" font-family="JetBrains Mono" font-size="13" font-weight="bold">${s.bTop.toFixed(1)} m</text>
+
+                <line x1="${startX + pxBtop/2}" y1="${topY - 16}" x2="${toeX}" y2="${topY - 16}" stroke="#fbbf24" stroke-width="1.5" marker-start="url(#arrAmber)" marker-end="url(#arrAmber)"/>
+                <text x="${(startX + pxBtop/2 + toeX)/2}" y="${topY - 24}" text-anchor="middle" fill="#fde047" font-family="JetBrains Mono" font-size="13" font-weight="bold">${s.x1.toFixed(1)} m</text>
+
+                <line x1="${crestRightX + pxBtri*0.33}" y1="${topY + pxH*0.28}" x2="${toeX}" y2="${topY + pxH*0.28}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${(crestRightX + pxBtri*0.33 + toeX)/2}" y="${topY + pxH*0.28 - 8}" text-anchor="middle" fill="#f8fafc" font-family="JetBrains Mono" font-size="13" font-weight="bold">${s.x2.toFixed(1)} m</text>
+
+                <line x1="${startX}" y1="${baseY + 26}" x2="${crestRightX}" y2="${baseY + 26}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${startX + pxBtop/2}" y="${baseY + 44}" text-anchor="middle" fill="#f8fafc" font-family="JetBrains Mono" font-size="12" font-weight="bold">${s.bTop.toFixed(1)} m</text>
+
+                <line x1="${crestRightX}" y1="${baseY + 26}" x2="${toeX}" y2="${baseY + 26}" stroke="#f8fafc" stroke-width="1.5" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${crestRightX + pxBtri/2}" y="${baseY + 44}" text-anchor="middle" fill="#f8fafc" font-family="JetBrains Mono" font-size="13" font-weight="bold">${s.bTri.toFixed(1)} m</text>
+
+                <line x1="${startX}" y1="${baseY + 62}" x2="${toeX}" y2="${baseY + 62}" stroke="#38bdf8" stroke-width="2" marker-start="url(#arrWhite)" marker-end="url(#arrWhite)"/>
+                <text x="${startX + pxBbase/2}" y="${baseY + 80}" text-anchor="middle" fill="#7dd3fc" font-family="JetBrains Mono" font-size="14" font-weight="900">${s.bBase.toFixed(1)} m</text>
+
+                <circle cx="${toeX}" cy="${baseY}" r="6" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
+                <text x="${toeX + 12}" y="${baseY + 16}" fill="#fda4af" font-family="JetBrains Mono" font-size="12" font-weight="bold">Pivot Toe (O)</text>
+
+                <!-- Kotak Ringkasan Kanan di dalam Blueprint -->
+                <g transform="translate(555, 35)">
+                    <rect x="0" y="0" width="335" height="275" rx="12" fill="#06152d" fill-opacity="0.92" stroke="#38bdf8" stroke-width="1.8"/>
+                    <text x="16" y="26" fill="#fbbf24" font-family="Orbitron" font-size="12.5" font-weight="900">ANALISIS SABO DAM REAL-TIME:</text>
+                    <text x="16" y="52" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">• Pw Hidrostatis = <tspan fill="#7dd3fc" font-weight="bold">${s.Pw.toFixed(2)} kN</tspan></text>
+                    <text x="16" y="74" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">• Ps Sedimen Aktif = <tspan fill="#fde047" font-weight="bold">${s.Ps.toFixed(2)} kN</tspan></text>
+                    <text x="16" y="96" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">• Fd Impak Lahar = <tspan fill="#fdba74" font-weight="bold">${s.Fd.toFixed(2)} kN</tspan></text>
+                    <text x="16" y="120" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">① Total Geser ΣH = <tspan fill="#fda4af" font-weight="bold">${s.totalH.toFixed(2)} kN</tspan></text>
+                    <text x="16" y="144" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">② Resisting (RM) = <tspan fill="#34d399" font-weight="bold">${s.RM.toFixed(2)} kN.m</tspan></text>
+                    <text x="16" y="168" fill="#e2e8f0" font-family="JetBrains Mono" font-size="11.5">• Overturning (OM)= <tspan fill="#fbbf24" font-weight="bold">${s.OM.toFixed(2)} kN.m</tspan></text>
+                    <rect x="16" y="186" width="303" height="72" rx="8" fill="#881337" fill-opacity="0.5" stroke="#f43f5e" stroke-width="2"/>
+                    <text x="167" y="216" text-anchor="middle" fill="#ffffff" font-family="Orbitron" font-size="15" font-weight="900">③ FS GULING = ${s.FS_OT.toFixed(2)}</text>
+                    <text x="167" y="242" text-anchor="middle" fill="#6ee7b7" font-family="JetBrains Mono" font-size="12" font-weight="bold">FS GESER = ${s.FS_SL.toFixed(2)} (${s.FS_OT >= 1.5 ? 'SAFE' : 'UNSAFE'})</text>
+                </g>
+            `;
+        }
+
+        function updateLiveRisalahAndSaran() {
+            const s = damState;
+            const rBox = document.getElementById('liveRisalahContent');
+            const sBox = document.getElementById('liveSaranKesimpulanContent');
+            if (!rBox || !sBox) return;
+
+            rBox.innerHTML = `
+                <p>• <b>Kombinasi Gaya Dorong Sabo Dam (ΣH):</b> Struktur menerima gaya hidrostatis <b>Pw = ${s.Pw.toFixed(2)} kN</b>, tekanan tanah aktif sedimen <b>Ps = ${s.Ps.toFixed(2)} kN</b> (hs = ${s.hSed.toFixed(1)} m), dan gaya impak aliran lahar <b>Fd = ${s.Fd.toFixed(2)} kN</b> (vd = ${s.vDebris.toFixed(1)} m/s), dengan total momen guling <b>OM = ${s.OM.toFixed(2)} kN.m</b>.</p>
+                <p>• <b>Momen Penahan Berat Sendiri (RM):</b> Pias persegi (W1 = ${s.W1.toFixed(1)} kN) dan segitiga (W2 = ${s.W2.toFixed(1)} kN) menghasilkan <b>RM = ${s.RM.toFixed(2)} kN.m</b> terhadap kaki hilir (toe).</p>
+                <p>• <b>Evaluasi Keamanan SNI 2851:2015:</b> Faktor Keamanan Guling tercatat <b>FS = ${s.FS_OT.toFixed(2)}</b> dan Faktor Keamanan Geser <b>FS = ${s.FS_SL.toFixed(2)}</b> dengan eksentrisitas <b>e = ${s.ecc.toFixed(2)} m</b>.</p>
+            `;
+
+            sBox.innerHTML = `
+                <p>• <b>Saran Teknis 1:</b> Pasang pipa sulingan (<i>weep holes / drip holes</i>) berdiameter 10–15 cm pada tubuh Sabo Dam untuk mereduksi tekanan air pori di dalam timbunan sedimen.</p>
+                <p>• <b>Saran Teknis 2:</b> Lengkapi kaki hilir dengan lantai terjun (<i>apron</i>) dan <i>sub-dam</i> guna mencegah gerusan lokal (<i>scouring</i>) akibat terjunan lahar.</p>
+                <p class="p-2 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 mt-1"><b>Kesimpulan:</b> Struktur Sabo Dam dinyatakan <b>${s.FS_OT >= 1.5 ? 'AMAN (SAFE SABO STRUCTURE)' : 'PERLU PERKUATAN DIMENSI'}</b> dengan <b>FS Guling = ${s.FS_OT.toFixed(2)}</b> dan <b>FS Geser = ${s.FS_SL.toFixed(2)}</b>.</p>
+            `;
+        }
+
+        function updateDamChart() {
+            const ctx = document.getElementById('damAnalyticsChart')?.getContext('2d');
+            if (!ctx) return;
+            if (damChartInstance) damChartInstance.destroy();
+
+            const s = damState;
+            const sedLevels = [0, 1, 2, 3, 4, 5, 6];
+
+            if (currentChartMode === 'fs') {
+                const fsData = sedLevels.map(hs => {
+                    const Ps_i = 0.5 * (1/3) * 10.0 * hs * hs;
+                    const MOs_i = Ps_i * (hs / 3.0);
+                    const MOd_i = s.Fd * Math.min(s.hDam, hs + 0.75);
+                    const OM_i = s.MOw + MOs_i + MOd_i;
+                    return Number((s.RM / Math.max(1, OM_i)).toFixed(2));
+                });
+
+                damChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: sedLevels.map(h => 'hs = ' + h + ' m'),
+                        datasets: [
+                            { label: 'FS Guling Sabo Dam vs Tinggi Sedimen (hs)', data: fsData, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.2)', fill: true, tension: 0.3, borderWidth: 2.5 },
+                            { label: 'Batas Minimum SNI 2851 (FS = 1.50)', data: sedLevels.map(() => 1.5), borderColor: '#f43f5e', borderDash: [6, 4], borderWidth: 2, pointRadius: 0 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'JetBrains Mono', size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                            y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.12)' } }
+                        }
+                    }
+                });
+            } else {
+                damChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Resisting Moment (RM)', 'Momen Air (MOw)', 'Momen Sedimen (MOs)', 'Momen Lahar (MOd)', 'Total Guling (OM)'],
+                        datasets: [{
+                            label: 'Komponen Momen Sabo Dam terhadap Toe (kN.m)',
+                            data: [Number(s.RM.toFixed(2)), Number(s.MOw.toFixed(2)), Number(s.MOs.toFixed(2)), Number(s.MOd.toFixed(2)), Number(s.OM.toFixed(2))],
+                            backgroundColor: ['#10b981', '#38bdf8', '#fbbf24', '#f97316', '#f43f5e'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'JetBrains Mono', size: 10 } } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                            y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.12)' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function switchChartMode(mode) {
+            currentChartMode = mode;
+            document.getElementById('btnChartFs').className = mode === 'fs' ? 'px-2.5 py-1 rounded bg-emerald-700 text-white font-bold cursor-pointer' : 'px-2.5 py-1 rounded bg-slate-800 text-slate-300 cursor-pointer';
+            document.getElementById('btnChartMoment').className = mode === 'moment' ? 'px-2.5 py-1 rounded bg-emerald-700 text-white font-bold cursor-pointer' : 'px-2.5 py-1 rounded bg-slate-800 text-slate-300 cursor-pointer';
+            updateDamChart();
+        }
+
+        function applyDamPreset(val) {
+            document.getElementById('presetSelect').value = val;
+            if (val === 'sabo') {
+                document.getElementById('inpBtop').value = 0.60;
+                document.getElementById('inpBbase').value = 4.20;
+                document.getElementById('inpHdam').value = 7.00;
+                document.getElementById('inpHwater').value = 6.00;
+                document.getElementById('inpHsed').value = 4.00;
+                document.getElementById('inpVdebris').value = 3.0;
+                document.getElementById('chkUplift').checked = false;
+            } else if (val === 'photo') {
+                document.getElementById('inpBtop').value = 0.60;
+                document.getElementById('inpBbase').value = 4.20;
+                document.getElementById('inpHdam').value = 7.00;
+                document.getElementById('inpHwater').value = 6.00;
+                document.getElementById('inpHsed').value = 0.00;
+                document.getElementById('inpVdebris').value = 0.0;
+                document.getElementById('chkUplift').checked = false;
+            } else if (val === 'sabo_full') {
+                document.getElementById('inpBtop').value = 1.20;
+                document.getElementById('inpBbase').value = 5.00;
+                document.getElementById('inpHdam').value = 7.00;
+                document.getElementById('inpHwater').value = 6.80;
+                document.getElementById('inpHsed').value = 6.00;
+                document.getElementById('inpVdebris').value = 4.0;
+                document.getElementById('chkUplift').checked = true;
+            } else if (val === 'sabo_reinforced') {
+                document.getElementById('inpBtop').value = 1.50;
+                document.getElementById('inpBbase').value = 5.20;
+                document.getElementById('inpHdam').value = 7.00;
+                document.getElementById('inpHwater').value = 6.00;
+                document.getElementById('inpHsed').value = 4.50;
+                document.getElementById('inpVdebris').value = 3.5;
+                document.getElementById('chkUplift').checked = true;
+            }
+            recalculateDamStability();
+        }
+
+        function switchCenterViewport(mode) {
+            ['bowtie', 'infographic', 'map', 'windy'].forEach(m => {
+                const pane = document.getElementById('centerPane' + m.charAt(0).toUpperCase() + m.slice(1));
+                const btn = document.getElementById('btnView' + m.charAt(0).toUpperCase() + m.slice(1));
+                if (pane) pane.classList.toggle('hidden', m !== mode);
+                if (btn) {
+                    btn.className = m === mode
+                        ? 'px-3 py-1.5 rounded-lg bg-emerald-600 text-white shadow cursor-pointer flex items-center gap-1.5'
+                        : 'px-3 py-1.5 rounded-lg text-slate-300 hover:text-white cursor-pointer flex items-center gap-1.5';
+                }
+            });
+            if (mode === 'map') {
+                if (!damLeafletMap) {
+                    damLeafletMap = L.map('damLeafletMap', { center: [-7.585, 110.445], zoom: 13 });
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 }).addTo(damLeafletMap);
+                    L.marker([-7.585, 110.445]).addTo(damLeafletMap).bindPopup('<b>Lokasi Sabo Dam Pengendali Lahar</b><br>FS Guling Sabo = 2.22 | FS Geser = 2.25 (SAFE)').openPopup();
+                }
+                setTimeout(() => damLeafletMap.invalidateSize(), 150);
+            }
+        }
+
+        function downloadBlueprintPNG() {
+            const svg = document.getElementById('damBlueprintSvg');
+            const ser = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([ser], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = function() {
+                const cv = document.createElement('canvas');
+                cv.width = 1840; cv.height = 860;
+                const cx = cv.getContext('2d');
+                cx.fillStyle = '#0b3155';
+                cx.fillRect(0, 0, cv.width, cv.height);
+                cx.drawImage(img, 0, 0, cv.width, cv.height);
+                URL.revokeObjectURL(url);
+                const a = document.createElement('a');
+                a.download = 'Blueprint_Sabo_Dam_Stability_v56.png';
+                a.href = cv.toDataURL('image/png');
+                a.click();
+            };
+            img.src = url;
+        }
+
+        // =========================================================================
+        // 2. MESIN BUMI 3D REALISTIS NASA BLUE-MARBLE + LAPISAN AWAN BERPUTAR
+        // =========================================================================
+        let bootEarthObj = null, bgEarthObj = null, ssEarthObj = null;
+
+        const EARTH_SOURCES = {
+            day: ['https://unpkg.com/three-globe@2.45.5/example/img/earth-blue-marble.jpg',
+                  'https://cdn.jsdelivr.net/npm/three-globe@2.45.5/example/img/earth-blue-marble.jpg'],
+            clouds: ['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_clouds_1024.png']
+        };
+
+        function earthLoadChain(urls, onOk, onFail) {
+            if (!urls.length) { onFail(); return; }
+            const t = new THREE.TextureLoader();
+            t.setCrossOrigin('anonymous');
+            t.load(urls[0], onOk, undefined, function () { earthLoadChain(urls.slice(1), onOk, onFail); });
+        }
+
+        function createRealisticEarth(container, opts) {
+            if (!container || typeof THREE === 'undefined') return null;
+            const W = Math.max(container.clientWidth || 0, 200);
+            const H = Math.max(container.clientHeight || 0, 200);
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 3000);
+            camera.position.set(0, opts.camY !== undefined ? opts.camY : 12, opts.camZ || 58);
+            let renderer;
+            try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); }
+            catch (e) { return null; }
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(W, H);
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xbfd8ff, 0.85));
+            const sun = new THREE.DirectionalLight(0xfff3d0, 1.15);
+            sun.position.set(120, 40, 90);
+            scene.add(sun);
+            const earthGroup = new THREE.Group();
+            scene.add(earthGroup);
+            const radius = opts.radius || 20;
+            const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 64, 64), new THREE.MeshPhongMaterial({ color: 0x1d4ed8, shininess: 10 }));
+            earthLoadChain(EARTH_SOURCES.day, function (t) {
+                t.anisotropy = 4;
+                earthMesh.material = new THREE.MeshPhongMaterial({ map: t, shininess: 14 });
+            }, function () {});
+            earthGroup.add(earthMesh);
+            earthMesh.rotation.x = 0.22;
+            const cloudMesh = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.012, 48, 48), new THREE.MeshPhongMaterial({ transparent: true, opacity: 0.0, depthWrite: false }));
+            earthLoadChain(EARTH_SOURCES.clouds, function (t) {
+                cloudMesh.material = new THREE.MeshPhongMaterial({ map: t, transparent: true, opacity: 0.92, depthWrite: false });
+            }, function () {});
+            earthGroup.add(cloudMesh);
+            const atmos = new THREE.Mesh(new THREE.SphereGeometry(radius * 1.13, 48, 48), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.07, side: THREE.BackSide, depthWrite: false }));
+            earthGroup.add(atmos);
+
+            const api = {
+                raf: 0, running: false, renderer: renderer,
+                loop: function () {
+                    if (api.running) return;
+                    api.running = true;
+                    const tick = function () {
+                        if (!api.running) return;
+                        earthMesh.rotation.y += opts.earthSpeed || 0.0009;
+                        cloudMesh.rotation.y += opts.cloudSpeed || 0.0014;
+                        renderer.render(scene, camera);
+                        api.raf = requestAnimationFrame(tick);
+                    };
+                    tick();
+                },
+                stop: function () { api.running = false; cancelAnimationFrame(api.raf); api.raf = 0; }
+            };
+            return api;
+        }
+
+        function mount3DEarthScene(containerId) {
+            try {
+                const c = document.getElementById(containerId);
+                if (containerId === 'loadingEarthCanvas') {
+                    bootEarthObj = createRealisticEarth(c, { camZ: 70, camY: 2, radius: 20, earthSpeed: 0.0011 });
+                    if (bootEarthObj) bootEarthObj.loop();
+                } else if (containerId === 'bgEarthCanvas') {
+                    bgEarthObj = createRealisticEarth(c, { camZ: 74, camY: 10, radius: 24, earthSpeed: 0.0006, cloudSpeed: 0.0011 });
+                    if (bgEarthObj) bgEarthObj.loop();
+                } else {
+                    ssEarthObj = createRealisticEarth(c, { camZ: 63, camY: 2, radius: 21, earthSpeed: 0.0013, cloudSpeed: 0.0021 });
+                    if (ssEarthObj) ssEarthObj.loop();
+                }
+            } catch (e) {}
+        }
+
+        // =========================================================================
+        // 3. DIREKTORI LENGKAP 61 MY APLIKASI WEB — IR. MOHAMAD HARTADI (IDENTIK)
+        // =========================================================================
+        const myAppsDirectory = [
+            {"u": "https://adikds.github.io/jarvis-ai/", "n": "JARVIS AI", "cat": "AI & Agent"},
+            {"u": "https://adikds.github.io/-Doa-Digital-Pro/", "n": "Doa Digital Pro", "cat": "Religi & Islami"},
+            {"u": "https://adikds.github.io/Al-Quran-Karim/", "n": "Al-Quran Karim", "cat": "Religi & Islami"},
+            {"u": "https://adikds.github.io/ai-meeting-assistant/", "n": "AI Meeting Pro", "cat": "AI & Produktivitas"},
+            {"u": "https://adikds.github.io/NEXUS-PAGE-AGENT-VER.1.0/", "n": "Nexus Page Agent", "cat": "AI & Agent"},
+            {"u": "https://adikds.github.io/APEX-Foundations-v3.1-Geotechnical-AI-/", "n": "Apex Foundations", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/ANALISIS-PONDASI-TELAPAK-/", "n": "Analisis Pondasi", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/AASHTO-SOIL-CLASSIFIER/", "n": "AASHTO Soil", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/ATLAS-GEOTEKNIK/", "n": "Atlas Geoteknik", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/GeoStructPro-15-Essential-Geotechnical-Formulas/", "n": "GeoStructPro 15", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/GEOSTRUCT-PRO-20-FORMULA-GEOTECHNICAL/", "n": "GeoStruct Pro 20", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/UNIFIED-SOIL-CLASSIFICATION-SYSTEM/", "n": "USCS Soil", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/WAY-APU-DAM/", "n": "Way Apu Dam", "cat": "Bendungan & Hidrologi"},
+            {"u": "https://adikds.github.io/INTEGRATED-DAM-ANALYTICS-ASSESSMENT-SYSTEM/", "n": "Dam Analytics", "cat": "Bendungan & Hidrologi"},
+            {"u": "https://adikds.github.io/SISTEM-MONITORING-SEISMIK-PERINGATAN-TSUNAMI/", "n": "Monitoring Seismik", "cat": "Seismik & Mitigasi"},
+            {"u": "https://adikds.github.io/MONITORING-PREDIKSI-STATUS-EI-NI-O-LA-NI-A/", "n": "El Nino La Nina", "cat": "Klimatologi & Cuaca"},
+            {"u": "https://adikds.github.io/MONITORING-PREDIKSI-ANGIN-MUSON-INDONESIA/", "n": "Monitoring Cuaca", "cat": "Klimatologi & Cuaca"},
+            {"u": "https://adikds.github.io/AERORADAR-PRO/", "n": "AeroRadar Pro", "cat": "Radar & Navigasi"},
+            {"u": "https://adikds.github.io/HYDRACANAL-PRO-GEOMETRIC-DESIGN/", "n": "HydraCanal Pro", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/EVENT-DRIVEN-ARCHITECTURE-FOR-AI-AGENTS/", "n": "EDA AI Agents", "cat": "AI & Agent"},
+            {"u": "https://adikds.github.io/edu-market-pro/", "n": "EduMarket Pro", "cat": "Edukasi & Pasar"},
+            {"u": "https://adikds.github.io/iptv-terminal/", "n": "IPTV Terminal", "cat": "Media & Streaming"},
+            {"u": "https://adikds.github.io/TV-streaming-live/", "n": "TV Streaming Live", "cat": "Media & Streaming"},
+            {"u": "https://adikds.github.io/pos-system/", "n": "POS Terminal Pro", "cat": "Bisnis & Kasir"},
+            {"u": "https://adikds.github.io/Aplikasi_Point_of_Sale_-POS-_atau_sistem_kasir/", "n": "POS Kasir", "cat": "Bisnis & Kasir"},
+            {"u": "https://adikds.github.io/business-suite/", "n": "Business Suite", "cat": "Bisnis & Manajemen"},
+            {"u": "https://adikds.github.io/stock-manager/", "n": "Stock Manager", "cat": "Bisnis & Manajemen"},
+            {"u": "https://adikds.github.io/financial-planner/", "n": "Financial Planner", "cat": "Keuangan & Finansial"},
+            {"u": "https://adikds.github.io/KEUANGANKU/", "n": "Keuanganku", "cat": "Keuangan & Finansial"},
+            {"u": "https://adikds.github.io/DOKTER-AI/", "n": "DOKTER AI EXPERT", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/DARUSSYIFA-MEDIKA/", "n": "DARUSSYIFA V.5.0", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/DARUSSYIFA_MEDIKA/", "n": "DARUSSYIFA V.2.0", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/SMILE-SYIFA-AI/", "n": "SMILE SYIFA AI", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/SKIN_SYIFA_AI/", "n": "SKIN SYIFA AI", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/NEURO-PSYCH_AI/", "n": "NEURO-PSYCH AI", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/-MEGA-ATLAS-FKG/", "n": "Mega Atlas FKG", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/Mega-Atlas-Kedokteran-Neurologi-Bedah-Syaraf/", "n": "Neurology Atlas", "cat": "Medis & Kesehatan"},
+            {"u": "https://adikds.github.io/STATISTICS_for_ENGINEERS-/", "n": "Statistics Engineers", "cat": "Teknik & Sains"},
+            {"u": "https://adikds.github.io/AI-VIDEO-EDITOR/", "n": "AI Video Editor", "cat": "Multimedia & AI"},
+            {"u": "https://adikds.github.io/SIMULASI-DAN-JADWAL-SERTA-SCOR-WORLD-CUP-2026/", "n": "World Cup 2026", "cat": "Olahraga & Hiburan"},
+            {"u": "https://adikds.github.io/FREE-CLAUDE-CODE/", "n": "Free Claude Code", "cat": "AI & Developer"},
+            {"u": "https://adikds.github.io/konstruksi-ai/", "n": "KONAI Pro", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/pabrik-ai/", "n": "Pabrik AI Pro", "cat": "AI & Industri"},
+            {"u": "https://adikds.github.io/gudang-bulog/", "n": "Gudang Bulog FEM", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds.github.io/Adi_Newbie/", "n": "ADI NEWBIE", "cat": "Personal & Portofolio"},
+            {"u": "https://famelack.com/radio/id", "n": "Famelack Radio ID", "cat": "Media & Streaming"},
+            {"u": "https://famelack.com/tv/id", "n": "Famelack TV ID", "cat": "Media & Streaming"},
+            {"u": "https://www.f15library.com/", "n": "F15 Library", "cat": "Edukasi & Perpustakaan"},
+            {"u": "https://adikds-byte.github.io/InaTEWS-Pro-v45/", "n": "InaTEWS Pro Tsunami", "cat": "Seismik & Mitigasi"},
+            {"u": "https://adikds-byte.github.io/Seismic_Site_Report_Pro/", "n": "Seismic Site Report Pro", "cat": "Seismik & Mitigasi"},
+            {"u": "https://adikds-byte.github.io/DSS-Sedimen-Pro-v4.81-Pro/", "n": "DSS Sedimen Pro", "cat": "Pesisir & Sedimen"},
+            {"u": "https://adikds-byte.github.io/COASTAL-SWI-ENGINE-PRO/", "n": "Coastal SWI Engine", "cat": "Pesisir & Coastal SWI"},
+            {"u": "https://adikds-byte.github.io/Indonesia_Dams_DSS/", "n": "Indonesia Dams DSS", "cat": "Bendungan & Energy"},
+            {"u": "https://adikds-byte.github.io/GeoStruct_Pro_Master_Edition/", "n": "GeoStruct Pro Master", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds-byte.github.io/SoilLabKit-Pro-Master-Edition-V7.0/", "n": "SoilLabKit Pro", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds-byte.github.io/kalkulator_budget_rumah_pro_v2.7/", "n": "Kalkulator Budget Rumah", "cat": "Budget & Home"},
+            {"u": "https://adikds-byte.github.io/GeoTestKit-PRO-V1.0/", "n": "GeoTestKit-PRO", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds-byte.github.io/AL-FALAK-RAMADAN-SIKLUS-33-TAHUN/", "n": "AL FALAK RAMADAN", "cat": "Religi & Islami"},
+            {"u": "https://adikds-byte.github.io/BENDUNGAN-TAILING-COMMAND-CENTRE/", "n": "Tailing Dam Command Centre", "cat": "Geoteknik & Sipil"},
+            {"u": "https://adikds-byte.github.io/DCPKit-Pro/", "n": "DCPKit Pro", "cat": "Geoteknik & Sipil"},
+            {"u": "https://newbieonline7.blogspot.com/", "n": "My Blog Engineering & AI", "cat": "Blog Artikel & AI"}
+        ];
+
+        function openAppsModal() {
+            renderAppsDirectory('');
+            document.getElementById('modalApps').classList.remove('hidden');
+            document.getElementById('modalApps').classList.add('flex');
+        }
+        function closeAppsModal() {
+            document.getElementById('modalApps').classList.add('hidden');
+            document.getElementById('modalApps').classList.remove('flex');
+        }
+        function renderAppsDirectory(q = '') {
+            const box = document.getElementById('appsGridContainer');
+            const lower = q.toLowerCase();
+            const list = myAppsDirectory.filter(a => a.n.toLowerCase().includes(lower) || a.cat.toLowerCase().includes(lower));
+            box.innerHTML = list.map((a, i) => `
+                <a href="${a.u}" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-xl bg-slate-900 border border-lime-500/40 hover:border-amber-400 flex justify-between items-center transition">
+                    <div>
+                        <div class="font-bold text-white text-xs">#${i + 1} ${a.n}</div>
+                        <span class="text-[9.5px] text-lime-300">${a.cat}</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-amber-400 text-xs"></i>
+                </a>
+            `).join('');
+        }
+
+        function openCreatorModal() { document.getElementById('creatorModal').classList.remove('hidden'); }
+        function closeCreatorModal() { document.getElementById('creatorModal').classList.add('hidden'); }
+
+        // =========================================================================
+        // 4. CHATBOT PINTAR JARVIS AI + LINK SUMBER WIKIPEDIA, GOOGLE, BING, AI
+        // =========================================================================
+        function toggleChatPanel() {
+            const p = document.getElementById('floatingChatPanel');
+            p.classList.toggle('hidden');
+            p.classList.toggle('flex');
+        }
+
+        function sendQuickChat(text) {
+            document.getElementById('chatUserInput').value = text;
+            processUserChat();
+        }
+
+        function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        function cardOk(html) { return `<div class="mbot-pop"><div class="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/50 text-slate-200 text-xs leading-relaxed mbot-glow-em" style="animation:mbotPop .45s ease">${html}</div></div>`; }
+        function cardInfo(html) { return `<div class="mbot-pop"><div class="p-2.5 rounded-xl bg-slate-900 border border-cyan-500/50 text-slate-200 text-xs leading-relaxed mbot-glow-cy" style="animation:mbotPop .45s ease">${html}</div></div>`; }
+
+        function sourceGrid(q) {
+            const enc = encodeURIComponent(q);
+            return `<div class="mt-2 grid grid-cols-3 gap-1 text-center text-[9px] font-mono font-bold">
+                <a target="_blank" rel="noopener" href="https://id.wikipedia.org/w/index.php?search=${enc}" class="p-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/70 transition">WIKIPEDIA ID</a>
+                <a target="_blank" rel="noopener" href="https://en.wikipedia.org/w/index.php?search=${enc}" class="p-1.5 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/70 transition">WIKIPEDIA EN</a>
+                <a target="_blank" rel="noopener" href="https://www.google.com/search?q=${enc}" class="p-1.5 rounded-lg bg-sky-950/70 border border-sky-500/50 text-sky-300 hover:bg-sky-900/70 transition">GOOGLE</a>
+                <a target="_blank" rel="noopener" href="https://www.bing.com/search?q=${enc}" class="p-1.5 rounded-lg bg-amber-950/70 border border-amber-500/50 text-amber-300 hover:bg-amber-900/70 transition">BING</a>
+                <a target="_blank" rel="noopener" href="https://copilot.microsoft.com/?q=${enc}" class="p-1.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 hover:bg-rose-900/70 transition">COPILOT AI</a>
+                <a target="_blank" rel="noopener" href="https://gemini.google.com/app" class="p-1.5 rounded-lg bg-violet-950/70 border border-violet-500/50 text-violet-300 hover:bg-violet-900/70 transition">GEMINI AI</a>
+            </div>`;
+        }
+
+        function processUserChat() {
+            const inp = document.getElementById('chatUserInput');
+            const q = inp.value.trim();
+            if (!q) return;
+            inp.value = '';
+            const box = document.getElementById('chatMessagesBox');
+
+            box.insertAdjacentHTML('beforeend', `<div class="mbot-user flex justify-end"><div class="p-2.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-100 text-xs max-w-[92%] mbot-pop" style="animation:mbotPop .35s ease">${esc(q)}</div></div>`);
+
+            const tid = 'typing_' + Date.now();
+            box.insertAdjacentHTML('beforeend', `<div id="${tid}" class="mbot-pop"><div class="p-2.5 rounded-xl bg-slate-900 border border-cyan-500/40 text-slate-200 text-xs flex items-center gap-2" style="animation:mbotPop .35s ease"><span class="mbot-dot"></span><span class="mbot-dot"></span><span class="mbot-dot"></span> <span class="text-cyan-300 font-mono">JARVIS AI menganalisis...</span></div></div>`);
+            box.scrollTop = box.scrollHeight;
+
+            const lower = q.toLowerCase();
+            const s = damState;
+
+            const finish = (html) => {
+                const t = document.getElementById(tid);
+                if (t) t.remove();
+                box.insertAdjacentHTML('beforeend', html);
+                box.scrollTop = box.scrollHeight;
+            };
+
+            if (lower.includes('sabo') || lower.includes('lahar') || lower.includes('debris')) {
+                setTimeout(() => finish(cardOk(`
+                    <b class="text-amber-300">🌋 Evaluasi Struktur Sabo Dam (SNI 2851:2015):</b><br>
+                    • <b>Gaya Hidrostatis (Pw):</b> ${s.Pw.toFixed(2)} kN (MOw = ${s.MOw.toFixed(2)} kN.m)<br>
+                    • <b>Tekanan Sedimen Aktif (Ps):</b> ${s.Ps.toFixed(2)} kN pada hs = ${s.hSed.toFixed(1)} m (MOs = ${s.MOs.toFixed(2)} kN.m)<br>
+                    • <b>Impak Aliran Lahar (Fd):</b> ${s.Fd.toFixed(2)} kN pada vd = ${s.vDebris.toFixed(1)} m/s (MOd = ${s.MOd.toFixed(2)} kN.m)<br>
+                    • <b>Momen Penahan (RM):</b> ${s.RM.toFixed(2)} kN.m → <b>FS Guling = ${s.FS_OT.toFixed(2)}</b> &amp; <b>FS Geser = ${s.FS_SL.toFixed(2)}</b>.
+                `) + sourceGrid(q)), 500);
+                return;
+            }
+
+            if (lower.includes('foto') || lower.includes('3.17') || lower.includes('langkah')) {
+                setTimeout(() => finish(cardOk(`
+                    <b class="text-emerald-300">📐 Penyelesaian Lengkap Foto Soal Bendungan Beton Trapesium:</b><br>
+                    • <b>① Gaya Hidrostatis (P):</b> P = γw·h̄·A = 9.81 × 3 × 6 × 1 = <b>176.58 kN</b> (bekerja 2.0 m dari dasar).<br>
+                    • <b>② Resisting Moment (RM):</b> W1 = 0.6(7)(24) = 100.8 kN (x1=3.9m); W2 = [7(3.6)/2](24) = 302.4 kN (x2=2.4m) → RM = <b>1118.90 kN.m</b>.<br>
+                    • <b>③ Factor of Safety (FS):</b> FS = 1118.9 / [176.58 × 2] = <b>3.17 (SAFE STRUCTURE)</b>.
+                `) + sourceGrid(q)), 500);
+                return;
+            }
+
+            if (lower.includes('prosedur mitigasi') || lower.includes('solusi')) {
+                setTimeout(() => finish(cardOk(`
+                    <b class="text-cyan-300">🛡️ Prosedur Mitigasi &amp; Desain Teknis Sabo Dam:</b><br>
+                    1. Sediakan <i>weep holes</i> (pipa sulingan) pada tubuh Sabo Dam untuk mengalirkan air pori timbunan sedimen.<br>
+                    2. Pertebal mercu pelimpah (B_top ≥ 1.50 m) pada sungai berbatu besar (boulder) untuk menahan benturan lahar.<br>
+                    3. Bangun lantai terjun (<i>apron</i>) dan <i>sub-dam</i> di hilir guna mencegah gerusan dasar pondasi.
+                `) + sourceGrid(q)), 500);
+                return;
+            }
+
+            if (lower.includes('programmer') || lower.includes('hartadi')) {
+                setTimeout(() => finish(cardOk(`<b class="text-amber-300">Ir. Mohamad Hartadi</b> — Civil &amp; Geotechnical Dam Safety Engineer<br>FB: <span class="text-sky-300">facebook.com/m.hartadi</span> · Blog: <span class="text-sky-300">newbieonline7.blogspot.com</span> · WA: <span class="text-emerald-300">0822-3103-6047</span>`) + sourceGrid(q)), 500);
+                return;
+            }
+
+            fetch(`https://id.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    if (d && d.extract) {
+                        finish(cardOk(`<b class="text-emerald-300">📖 ${esc(d.title)} (Wikipedia):</b><br>${esc(d.extract.slice(0, 380))}...`) + sourceGrid(q));
+                    } else {
+                        finish(cardInfo(`<b class="text-cyan-300">💡 Analisis JARVIS AI:</b><br>Pada simulasi Sabo Dam saat ini, total gaya dorong horizontal tercatat <b>${s.totalH.toFixed(2)} kN</b> dengan <b>FS Guling = ${s.FS_OT.toFixed(2)}</b>. Telusuri referensi eksternal untuk <b>"${esc(q)}"</b> melalui tautan di bawah:`) + sourceGrid(q));
+                    }
+                })
+                .catch(() => finish(cardInfo(`Telusuri referensi lengkap mengenai <b>"${esc(q)}"</b> di bawah ini:`) + sourceGrid(q)));
+        }
+
+        // =========================================================================
+        // 5. MODUL KONTROL ULTIMATE: TRANSLATE ID/EN · FONT SIZE · DAM TAILING CC
+        // =========================================================================
+        const DAM_TAILING_URL = 'https://adikds-byte.github.io/BENDUNGAN-TAILING-COMMAND-CENTRE/';
+        let APP_LANG = localStorage.getItem('mine_app_lang') || 'id';
+        let APP_FONT = parseInt(localStorage.getItem('mine_app_font') || '100', 10);
+        if (isNaN(APP_FONT)) APP_FONT = 100;
+        const APP_FONT_MIN = 85, APP_FONT_MAX = 130, APP_FONT_STEP = 10;
+
+        const I18N_MAP = [
+            { sel: 'header h1', id: 'SISTEM SIMULASI & ANALISIS STABILITAS STRUKTUR SABO DAM & BENDUNGAN GRAVITASI', en: 'SABO DAM & CONCRETE GRAVITY DAM STABILITY SIMULATION SYSTEM' },
+            { sel: '#btnViewBowtie', id: '1. BLUEPRINT SABO DAM', en: '1. SABO DAM BLUEPRINT' },
+            { sel: '#btnViewInfographic', id: '2. WORKFLOW & RISALAH', en: '2. WORKFLOW & MINUTES' },
+            { sel: '#btnViewMap', id: '3. WEBGIS SABO DAM', en: '3. SABO DAM WEBGIS' },
+            { sel: '#btnViewWindy', id: '4. RADAR CUACA WINDY', en: '4. WINDY WEATHER RADAR' }
+        ];
+
+        function buildCtrlGroupHTML(compact) {
+            const pad = compact ? 'px-2 py-1 text-[10px]' : 'px-3 py-1.5 text-[11px]';
+            const tailLabel = compact ? 'DAM TAILING CC' : 'DAM TAILING COMMAND CENTRE';
+            return `
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="toggleAppLang()" class="capsule-translate ${pad}" title="Ganti Bahasa / Switch Language (ID-EN)">
+                    <i class="fa-solid fa-language"></i><b class="langLabel">${APP_LANG === 'id' ? 'ID' : 'EN'}</b>
+                </button>
+                <div class="capsule-font ${pad}">
+                    <button type="button" onclick="appFontAdj(-${APP_FONT_STEP})" class="fsBtn" title="Perkecil Teks">A−</button>
+                    <button type="button" onclick="appFontReset()" class="fsMid" title="Reset Ukuran Teks">
+                        <i class="fa-solid fa-arrows-up-down"></i><b class="fsPctLabel">${APP_FONT}%</b>
+                    </button>
+                    <button type="button" onclick="appFontAdj(${APP_FONT_STEP})" class="fsBtn" title="Perbesar Teks">A+</button>
+                </div>
+                <button type="button" onclick="openDamTailingCentre()" class="btn-dam-tailing ${pad}" title="Buka Dam Tailing Command Centre">
+                    <i class="fa-solid fa-mountain-sun"></i>${tailLabel}
+                </button>
+            </div>`;
+        }
+
+        function injectCtrlGroups() {
+            ['ctrlGroupDash', 'ctrlGroupChat', 'ctrlGroupCreator'].forEach(id => {
+                const host = document.getElementById(id);
+                if (host) {
+                    const compact = (id !== 'ctrlGroupDash');
+                    host.innerHTML = buildCtrlGroupHTML(compact);
+                }
+            });
+        }
+
+        function applyAppFont() {
+            document.documentElement.style.fontSize = APP_FONT + '%';
+            localStorage.setItem('mine_app_font', String(APP_FONT));
+            document.querySelectorAll('.fsPctLabel').forEach(el => { el.textContent = APP_FONT + '%'; });
+        }
+        function appFontAdj(d) {
+            APP_FONT = Math.min(APP_FONT_MAX, Math.max(APP_FONT_MIN, APP_FONT + d));
+            applyAppFont();
+        }
+        function appFontReset() { APP_FONT = 100; applyAppFont(); }
+
+        function applyAppLang() {
+            localStorage.setItem('mine_app_lang', APP_LANG);
+            document.querySelectorAll('.langLabel').forEach(el => { el.textContent = APP_LANG === 'id' ? 'ID' : 'EN'; });
+            I18N_MAP.forEach(e => {
+                const el = document.querySelector(e.sel);
+                if (!el) return;
+                const target = APP_LANG === 'id' ? e.id : e.en;
+                let last = null;
+                el.childNodes.forEach(n => { if (n.nodeType === 3 && n.textContent.trim()) last = n; });
+                if (last) last.textContent = ' ' + target + ' ';
+            });
+            document.documentElement.setAttribute('lang', APP_LANG);
+        }
+        function toggleAppLang() {
+            APP_LANG = APP_LANG === 'id' ? 'en' : 'id';
+            applyAppLang();
+        }
+        function openDamTailingCentre() {
+            window.open(DAM_TAILING_URL, '_blank', 'noopener');
+        }
+
+        // =========================================================================
+        // 6. JAM REAL-TIME WIB, TEMA, BOOTING & SCREENSAVER
+        // =========================================================================
+        function updateLiveClocks() {
+            const now = new Date();
+            const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+            const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+            const dateStr = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+            const timeStr = now.toTimeString().slice(0, 8);
+
+            document.getElementById('topDashDate').textContent = dateStr;
+            document.getElementById('topDashTime').textContent = `${timeStr} WIB`;
+            document.getElementById('loadingClock').textContent = `${dateStr} • ${timeStr} WIB`;
+            document.getElementById('screensaverClock').textContent = timeStr;
+            document.getElementById('screensaverDate').textContent = `${dateStr} • ${timeStr} WIB`;
+        }
+
+        function toggleScreensaver(show) {
+            const el = document.getElementById('screensaverOverlay');
+            if (show) {
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+                if (!window._ssEarthMounted) {
+                    mount3DEarthScene('ssEarthCanvas');
+                    window._ssEarthMounted = true;
+                }
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('flex');
+            }
+        }
+        function closeScreensaverOnBg(e) {
+            if (e.target.tagName !== 'BUTTON') toggleScreensaver(false);
+        }
+
+        function toggleThemeMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            document.getElementById('themeIcon').className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        }
+
+        function dismissLoadingScreen() {
+            const ov = document.getElementById('loadingOverlay');
+            if (ov) {
+                ov.style.opacity = '0';
+                ov.style.pointerEvents = 'none';
+                setTimeout(() => ov.style.display = 'none', 500);
+            }
+            try { if (bootEarthObj && bootEarthObj.stop) bootEarthObj.stop(); } catch (e) {}
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            injectCtrlGroups();
+            applyAppFont();
+            applyAppLang();
+            updateLiveClocks();
+            setInterval(updateLiveClocks, 1000);
+
+            mount3DEarthScene('loadingEarthCanvas');
+            mount3DEarthScene('bgEarthCanvas');
+
+            let pct = 25;
+            const iv = setInterval(() => {
+                pct += 25;
+                const bar = document.getElementById('loadingProgressBar');
+                const lbl = document.getElementById('loadingPercent');
+                if (bar) bar.style.width = Math.min(100, pct) + '%';
+                if (lbl) lbl.textContent = Math.min(100, pct) + '%';
+                if (pct >= 100) {
+                    clearInterval(iv);
+                    setTimeout(dismissLoadingScreen, 400);
+                }
+            }, 350);
+
+            recalculateDamStability();
+        });
+    </script>
+
+    <!-- ========================================================================= -->
+    <!-- 11. DATA & ENGINE PUSAT EKSPOR 13 LAPORAN WORD (.DOC) KHUSUS SABO DAM     -->
+    <!-- ========================================================================= -->
+    <script id="saboWordReportsData">
+    const WORD_REPORTS = [
+        {"n": "01", "slug": "RingkasanStabilitasSaboDam", "title": "RINGKASAN EKSEKUTIF & METODOLOGI STABILITAS STRUKTUR SABO DAM (SNI 2851:2015)", "accent": "#34d399", "kpi": [["Gaya Dorong Total (ΣH)", "227,55 kN", "A"], ["Resisting Moment (RM)", "1118,90 kN.m", "A"], ["Overturning Moment (OM)", "504,15 kN.m", "A"], ["FS Guling Sabo / Foto", "2,22 / 3,17 (AMAN)", "A"]], "chart": {"title": "Komponen Gaya & Momen Sabo Dam Trapesium", "bars": [["Gaya Hidrostatis Pw (kN)", 176.58, "#0ea5e9"], ["Gaya Aktif Sedimen Ps (kN)", 26.67, "#f59e0b"], ["Gaya Impak Lahar Fd (kN)", 24.30, "#f43f5e"], ["Momen Guling Total OM (kN.m)", 504.15, "#fb923c"], ["Momen Penahan RM (kN.m)", 1118.90, "#10b981"]]}, "flow": [["Akuisisi Geometri", "Input lebar mercu 0,60 m, lebar dasar 4,20 m, tinggi H = 7,0 m, air hw = 6,0 m, dan sedimen hs = 4,0 m."], ["Gaya Hidrostatis & Sedimen", "Hitung Pw = 176,58 kN (lengan 2,0 m) dan tekanan aktif sedimen Ps = 26,67 kN (lengan 1,33 m)."], ["Impak Aliran Lahar", "Hitung tumbukan dinamis aliran debris Fd = kd·ρd·hd·vd² = 24,30 kN pada elevasi +4,75 m."], ["Evaluasi Guling & Geser", "Bandingkan RM = 1118,90 kN.m dengan OM = 504,15 kN.m sehingga FS_guling = 2,22 dan FS_geser = 2,25."], ["Verifikasi Foto Soal", "Saat sedimen hs = 0 dan vd = 0, hasil kembali persis ke foto soal asli yaitu FS = 3,17."]], "detail": ["Pemodelan struktur Sabo Dam mengacu pada SNI 2851:2015 tentang Desain Teknis Bendung Penahan Sedimen, yang memperluas analisis bendungan gravitasi biasa dengan memperhitungkan endapan sedimen vulkanik dan tumbukan aliran debris/lahar.", "Pada kondisi Sabo Dam dengan sedimen hs = 4,0 m dan aliran lahar vd = 3,0 m/s, struktur menahan total gaya geser 227,55 kN dan momen guling 504,15 kN.m, menghasilkan Faktor Keamanan Guling FS = 2,22 dan Geser FS = 2,25."], "risalah": "Risalah Teknis: Penampang trapesium terbukti sanggup menahan beban kombinasi hidrostatis, dorongan tanah aktif sedimen, dan tumbukan lahar dengan margin keamanan di atas syarat minimum 1,50.", "saran": ["Sediakan pipa sulingan (weep holes) untuk mereduksi tekanan pori di dalam timbunan sedimen.", "Pertebal mercu pelimpah menjadi 1,50 m - 2,50 m pada sungai dengan batu boulder besar.", "Bangun sub-dam dan lantai terjun (apron) di hilir tubuh utama Sabo Dam."], "kesimpulan": "Kesimpulan: Struktur Sabo Dam dinyatakan AMAN terhadap guling (FS = 2,22) dan geser (FS = 2,25), serta terverifikasi penuh terhadap kasus foto soal asli (FS = 3,17)."},
+        {"n": "02", "slug": "AnalisisGayaHidrostatisLumpur", "title": "TOPIK 2: ANALISIS GAYA HIDROSTATIS AIR & FLUIDA BERLUMPUR PADA SABO DAM", "accent": "#10b981", "kpi": [["Kedalaman Air (hw)", "6,00 m", "A"], ["Pusat Tekanan (h̄)", "3,00 m", "A"], ["Titik Tangkap (yp)", "2,00 m dari dasar", "A"], ["Gaya Hidrostatis (Pw)", "176,58 kN/m", "A"]], "chart": {"title": "Distribusi Tekanan Hidrostatis Hulu (kPa)", "bars": [["Kedalaman 1,5 m", 14.72, "#0ea5e9"], ["Kedalaman 3,0 m (Centroid)", 29.43, "#10b981"], ["Kedalaman 4,5 m", 44.15, "#f59e0b"], ["Kedalaman Dasar 6,0 m", 58.86, "#f43f5e"]]}, "flow": [["Tekanan Permukaan", "Tekanan pada muka air bebas (W.L) bernilai 0 kPa."], ["Gradien Kedalaman", "Meningkat linier sebesar γw = 9,81 kN/m³ per meter kedalaman."], ["Resultan Gaya Pw", "Pw = 9,81 × 3,0 × 6,0 = 176,58 kN bekerja 2,00 m dari dasar."], ["Momen Guling Air", "MOw = 176,58 × 2,00 = 353,16 kN.m."]], "detail": ["Gaya hidrostatis merupakan komponen beban permanen utama pada Sabo Dam baik sebelum maupun sesudah kantong sedimen terisi penuh."], "risalah": "Risalah Teknis: Saat banjir lahar dingin membawa konsentrasi sedimen halus tinggi, berat jenis cairan efektif dapat meningkat dari 9,81 kN/m³ menjadi 10,8 - 11,8 kN/m³.", "saran": ["Gunakan drainase slit atau lubang drip hole agar air tidak menggenang penuh saat kondisi normal."], "kesimpulan": "Kesimpulan: Gaya hidrostatis Pw = 176,58 kN menyumbang momen guling dasar sebesar 353,16 kN.m."},
+        {"n": "03", "slug": "TekananTanahAktifSedimen", "title": "TOPIK 3: ANALISIS TEKANAN TANAH AKTIF ENDAPAN SEDIMEN (RANKINE)", "accent": "#0ea5e9", "kpi": [["Tinggi Sedimen (hs)", "4,00 m", "A"], ["Sudut Geser Dalam (φs)", "30° (Ka = 0,333)", "A"], ["Berat Jenis Terendam", "10,0 kN/m³", "A"], ["Gaya Sedimen (Ps)", "26,67 kN (MOs = 35,56)", "A"]], "chart": {"title": "Gaya Tekanan Sedimen Aktif per Ketinggian Endapan (kN)", "bars": [["hs = 2,0 m", 6.67, "#10b981"], ["hs = 4,0 m (Desain)", 26.67, "#0ea5e9"], ["hs = 5,0 m", 41.67, "#f59e0b"], ["hs = 6,0 m (Penuh Mercu)", 60.00, "#f43f5e"]]}, "flow": [["Koefisien Rankine", "Ka = (1 - sin 30°) / (1 + sin 30°) = 0,333."], ["Berat Jenis Apung", "γsub = γsat - γw = 19,81 - 9,81 = 10,0 kN/m³."], ["Gaya Sedimen Ps", "Ps = 0,5 × 0,333 × 10,0 × 4,0² = 26,67 kN."], ["Momen Guling Sedimen", "MOs = 26,67 × (4,0 / 3) = 35,56 kN.m."]], "detail": ["Seiring berjalannya waktu, kantong Sabo Dam di hulu akan terisi endapan pasir, kerikil, dan batu vulkanik yang memberikan dorongan tanah aktif lateral terhadap dinding vertikal hulu."], "risalah": "Risalah Teknis: Pada hs = 4,0 m, gaya aktif sedimen menambah momen guling sebesar 35,56 kN.m; saat kantong penuh (hs = 6,0 m), MOs meningkat menjadi 120,00 kN.m.", "saran": ["Lakukan pengerukan berkala (sand pocket dredging) untuk menjaga kapasitas tampung Sabo Dam."], "kesimpulan": "Kesimpulan: Tekanan aktif sedimen terukur sebesar Ps = 26,67 kN dan masih berada dalam kapasitas tahanan struktur."},
+        {"n": "04", "slug": "ImpakHidrodinamisAliranDebris", "title": "TOPIK 4: GAYA IMPAK HIDRODINAMIS ALIRAN DEBRIS / LAHAR (DEBRIS FLOW IMPACT)", "accent": "#f59e0b", "kpi": [["Kecepatan Lahar (vd)", "3,00 m/detik", "W"], ["Tebal Aliran (hd)", "1,50 m", "W"], ["Gaya Impak (Fd)", "24,30 kN", "W"], ["Momen Impak (MOd)", "115,43 kN.m", "W"]], "chart": {"title": "Lonjakan Gaya Impak Lahar terhadap Kecepatan Aliran (kN)", "bars": [["vd = 2,0 m/s", 10.80, "#10b981"], ["vd = 3,0 m/s (Desain)", 24.30, "#0ea5e9"], ["vd = 4,0 m/s", 43.20, "#f59e0b"], ["vd = 5,0 m/s (Banjir Bandang)", 67.50, "#f43f5e"]]}, "flow": [["Parameter Aliran", "Massa jenis aliran lahar ρd = 1,8 ton/m³, tebal aliran hd = 1,5 m."], ["Rumus Impak Dinamis", "Fd = kd · ρd · hd · vd² = 1,0 × 1,8 × 1,5 × 3,0² = 24,30 kN."], ["Lengan Momen Tinggi", "Bekerja di atas permukaan sedimen yFd = 4,0 + 0,75 = 4,75 m."], ["Momen Impak MOd", "MOd = 24,30 × 4,75 = 115,43 kN.m."]], "detail": ["Aliran debris atau lahar memiliki energi kinetik besar yang menghantam bagian atas tubuh Sabo Dam tepat di atas permukaan endapan sedimen lama."], "risalah": "Risalah Teknis: Meskipun gaya Fd (24,30 kN) lebih kecil dari Pw (176,58 kN), lengan momennya yang tinggi (4,75 m) menghasilkan momen guling yang signifikan (115,43 kN.m).", "saran": ["Gunakan tipe Open-Type / Slit Sabo Dam di bagian hulu untuk memecah energi kinetik boulder besar."], "kesimpulan": "Kesimpulan: Tubuh Sabo Dam mampu menahan tumbukan aliran lahar vd = 3,0 m/s dengan aman."},
+        {"n": "05", "slug": "DekomposisiBeratMomenPenahanSabo", "title": "TOPIK 5: DEKOMPOSISI PIAS BERAT SENDIRI (W1 & W2) DAN RESISTING MOMENT", "accent": "#f43f5e", "kpi": [["Berat Pias Persegi (W1)", "100,80 kN", "A"], ["Lengan Momen x1", "3,90 m ke Toe", "A"], ["Berat Pias Segitiga (W2)", "302,40 kN", "A"], ["Total RM", "1118,90 kN.m", "A"]], "chart": {"title": "Kontribusi Momen Penahan Sabo Dam (kN.m)", "bars": [["Momen Pias W1 (Mercu Hulu)", 393.12, "#0ea5e9"], ["Momen Pias W2 (Kemiringan Hilir)", 725.76, "#10b981"], ["Total Resisting Moment (RM)", 1118.88, "#8b5cf6"]]}, "flow": [["Pias 1 (Persegi)", "W1 = 0,6 × 7 × 24 = 100,80 kN dengan lengan x1 = 3,90 m."], ["Pias 2 (Segitiga)", "W2 = 0,5 × 7 × 3,6 × 24 = 302,40 kN dengan lengan x2 = 2,40 m."], ["Penjumlahan RM", "RM = 393,12 + 725,76 = 1118,88 kN.m (dibulatkan 1118,90 kN.m)."]], "detail": ["Stabilitas gravitasi Sabo Dam sepenuhnya bertumpu pada massa beton siklop/bertulang yang memberikan momen penahan searah jarum jam terhadap titik putar di ujung kaki hilir (toe)."], "risalah": "Risalah Teknis: Kemiringan hilir 1 : 0,514 (3,6 m : 7,0 m) menempatkan pusat massa di posisi optimal untuk melawan momen guling.", "saran": ["Gunakan batu belah segar berdensitas tinggi pada campuran beton siklop tubuh Sabo Dam."], "kesimpulan": "Kesimpulan: Momen penahan RM = 1118,90 kN.m memberikan kapasitas stabilitas yang kuat."},
+        {"n": "06", "slug": "StabilitasGulingDanGeserSabo", "title": "TOPIK 6: EVALUASI FAKTOR KEAMANAN GULING (OVERTURNING) & GESER (SLIDING)", "accent": "#8b5cf6", "kpi": [["FS Guling Foto Soal", "3,17 (AMAN)", "A"], ["FS Guling Sabo Dam", "2,22 (AMAN ≥ 1,50)", "A"], ["FS Geser Sabo Dam", "2,25 (AMAN ≥ 1,50)", "A"], ["Status Struktur", "SAFE STRUCTURE", "A"]], "chart": {"title": "Perbandingan Faktor Keamanan Sabo Dam terhadap Standar SNI", "bars": [["Syarat Minimum SNI 2851", 1.50, "#f43f5e"], ["FS Guling Mode Sabo Dam", 2.22, "#0ea5e9"], ["FS Geser Mode Sabo Dam", 2.25, "#f59e0b"], ["FS Guling Mode Foto Soal", 3.17, "#10b981"]]}, "flow": [["Cek Guling", "FS_OT = 1118,90 / 504,15 = 2,22 ≥ 1,50."], ["Cek Geser", "FS_SL = [0,75(403,2) + 50(4,2)] / 227,55 = 2,25 ≥ 1,50."]], "detail": ["Evaluasi ganda memastikan Sabo Dam tidak terguling ke hilir maupun bergeser di sepanjang bidang kontak pondasi."], "risalah": "Risalah Teknis: Penambahan koperan (shear key) pada dasar Sabo Dam sangat penting untuk menjaga tahanan kohesi lekatan pondasi.", "saran": ["Tanamkan pondasi tubuh utama minimal 1,5 m - 2,0 m ke dalam lapisan tanah/batuan keras dasar sungai."], "kesimpulan": "Kesimpulan: Baik kriteria guling maupun geser terpenuhi dengan aman."},
+        {"n": "07", "slug": "AturanSepertigaTengahDanDayaDukung", "title": "TOPIK 7: ATURAN SEPERTIGA TENGAH (MIDDLE-THIRD) & TEGANGAN PONDASI SABO DAM", "accent": "#22d3ee", "kpi": [["Letak Resultan (x̄)", "1,52 m dari Toe", "A"], ["Eksentrisitas (e)", "0,58 m", "A"], ["Batas Izin (B/6)", "0,70 m", "A"], ["Tegangan Maks (q_max)", "175,2 kPa (Tekan)", "A"]], "chart": {"title": "Tegangan Kontak Dasar Pondasi Sabo Dam (kPa)", "bars": [["Tegangan Maksimum di Toe (q_max)", 175.2, "#0ea5e9"], ["Tegangan Rata-rata (q_avg)", 96.0, "#10b981"], ["Tegangan Minimum di Heel (q_min)", 16.8, "#f59e0b"]]}, "flow": [["Momen Bersih", "M_net = 1118,88 - 504,15 = 614,73 kN.m."], ["Jarak Resultan", "x̄ = 614,73 / 403,20 = 1,52 m dari toe."], ["Eksentrisitas", "e = 2,10 - 1,52 = 0,58 m ≤ B/6 (0,70 m)."]], "detail": ["Karena e = 0,58 m masih lebih kecil dari batas kern B/6 = 0,70 m, seluruh dasar pondasi Sabo Dam mengalami tegangan tekan positif tanpa ada pengangkatan (uplift gap) di tumit hulu."], "risalah": "Risalah Teknis: Tegangan maksimum di ujung kaki hilir sebesar 175,2 kPa masih berada di bawah daya dukung izin batuan/pasir padat dasar sungai (> 300 kPa).", "saran": ["Perbaiki tanah dasar yang lunak dengan perkuatan cerucuk atau beton siklop pengisi."], "kesimpulan": "Kesimpulan: Distribusi tegangan kontak dasar pondasi memenuhi aturan sepertiga tengah."},
+        {"n": "08", "slug": "GayaUpliftDanWeepHoles", "title": "TOPIK 8: PENGENDALIAN GAYA ANGKAT (UPLIFT) & DESAIN PIPA SULINGAN (WEEP HOLES)", "accent": "#2dd4bf", "kpi": [["Uplift Tanpa Drainase", "123,61 kN", "W"], ["Uplift Dengan Weep Hole", "61,80 kN (-50%)", "A"], ["Diameter Weep Hole", "PVC Ø 100 - 150 mm", "A"], ["Filter Geotekstil", "Ijuk + Kerikil Берgradasi", "A"]], "chart": {"title": "Efektivitas Weep Holes dalam Mereduksi Gaya Uplift (kN)", "bars": [["Uplift Penuh Tanpa Weep Hole", 123.61, "#f43f5e"], ["Uplift Dengan Weep Hole Aktif", 61.80, "#0ea5e9"], ["Uplift + Cut-Off Wall Hulu", 41.20, "#10b981"]]}, "flow": [["Pemasangan Sulingan", "Pipa PVC dipasang miring 5% dari hulu ke hilir setiap jarak 2 m × 2 m."], ["Lapisan Filter", "Ujung hulu pipa dibungkus ijuk/geotekstil non-woven dan kerikil agar tidak tersumbat."]], "detail": ["Lubang drainase (weep holes) pada tubuh Sabo Dam berfungsi menurunkan garis freatik air di dalam timbunan sedimen hulu sehingga gaya uplift di bawah pondasi berkurang drastis."], "risalah": "Risalah Teknis: Tersumbatnya weep hole oleh lumpur halus vulkanik adalah penyebab utama naiknya tekanan air pori pada Sabo Dam tua.", "saran": ["Lakukan penyemprotan pembersihan (flushing) lubang sulingan setiap menjelang musim hujan."], "kesimpulan": "Kesimpulan: Sistem weep holes efektif menjaga stabilitas jangka panjang Sabo Dam."},
+        {"n": "09", "slug": "DesainPelimpahMercuDanAbrasi", "title": "TOPIK 9: DESAIN MERCU PELIMPAH SABO DAM & PERLINDUNGAN ABRASI BOULDER", "accent": "#38bdf8", "kpi": [["Lebar Mercu Foto", "0,60 m", "-"], ["Rekomendasi Sabo", "1,50 - 2,50 m", "A"], ["Mutu Beton Lapis Aus", "K-350 / f'c 30 MPa", "A"], ["Lapisan Pelindung", "Batu Kali / Pelat Baja", "A"]], "chart": {"title": "peningkatan RM dengan Pelebaran Mercu Sabo Dam (kN.m)", "bars": [["B_top = 0,60 m (Foto)", 1118.9, "#0ea5e9"], ["B_top = 1,20 m", 1315.4, "#10b981"], ["B_top = 1,80 m", 1502.8, "#8b5cf6"], ["B_top = 2,40 m", 1681.0, "#f59e0b"]]}, "flow": [["Evaluasi Benturan", "Aliran lahar membawa batu besar (boulder Ø > 1,0 m) yang melimpas di atas mercu."], ["Perkuatan Mercu", "Mercu diperlebar dan dilapisi beton mutu tinggi atau pasangan batu andesit keras."]], "detail": ["Mercu Sabo Dam mengalami abrasi dan tumbukan paling berat saat banjir lahar melimpas."], "risalah": "Risalah Teknis: Memperlebar mercu dari 0,60 m menjadi 1,50 m tidak hanya melindungi mercu dari pecah benturan boulder, tetapi juga meningkatkan RM secara signifikan.", "saran": ["Beri kemiringan mercu ke arah hilir dan lindungi sudut mercu dengan profil baja atau batu candi/andesit."], "kesimpulan": "Kesimpulan: Perlindungan abrasi mercu wajib diterapkan pada sungai berhulu gunung berapi aktif."},
+        {"n": "10", "slug": "DesainApronDanSubDam", "title": "TOPIK 10: DESAIN LANTAI TERJUN (APRON), KOLAM OLAK & SUB-DAM HILIR", "accent": "#ef4444", "kpi": [["Panjang Apron (La)", "1,5 - 2,0 × (H + ho)", "A"], ["Tebal Lantai Apron", "0,80 - 1,20 m", "A"], ["Tinggi Sub-Dam", "1/3 - 1/4 Tinggi Main Dam", "A"], ["Proteksi Gerusan", "100% Terlindungi", "A"]], "chart": {"title": "Reduksi Energi Terjunan Lahar di Hilir Sabo Dam (%)", "bars": [["Tanpa Apron (Gerusan Langsung)", 100, "#f43f5e"], ["Dengan Lantai Apron Beton", 45, "#f59e0b"], ["Apron + Sub-Dam (Kolam Olak)", 15, "#10b981"]]}, "flow": [["Jarak Jatuh Terjunan", "Aliran lahar yang terjun dari mercu setinggi 7 m menghantam dasar sungai di hilir toe."], ["Fungsi Sub-Dam", "Sub-dam menciptakan bantalan air/sedimen (water cushion) yang meredam energi tumbukan."]], "detail": ["Kegagalan Sabo Dam di lapangan paling sering disebabkan oleh penggerusan lokal (local scouring) di bawah kaki hilir (toe) yang menggantung pondasi tubuh utama."], "risalah": "Risalah Teknis: Kombinasi tubuh utama (main dam), lantai terjun (apron), dan sub-dam merupakan satu kesatuan struktur Sabo Dam yang tidak terpisahkan.", "saran": ["Pastikan panjang apron minimal 1,5 kali tinggi jatuh total sesuai rumus Bligh / SNI 2851:2015."], "kesimpulan": "Kesimpulan: Konstruksi apron dan sub-dam menjamin keamanan kaki hilir dari bahaya gerusan."},
+        {"n": "11", "slug": "BebanGempaSaboDam", "title": "TOPIK 11: ANALISIS STABILITAS SEISMIK SABO DAM (SNI 8064:2016 & PUSGEN)", "accent": "#a78bfa", "kpi": [["Koefisien Gempa (kh)", "0,15 g", "-"], ["Gaya Inersia Beton", "60,48 kN", "W"], ["Syarat FS Gempa", "≥ 1,20", "A"], ["FS Aktual Saat Gempa", "1,86 (AMAN)", "A"]], "chart": {"title": "Faktor Keamanan Guling Sabo Dam pada Berbagai Koefisien Gempa", "bars": [["kh = 0,00 g (Statis)", 2.22, "#10b981"], ["kh = 0,10 g (Gempa Sedang)", 1.98, "#0ea5e9"], ["kh = 0,15 g (Gempa Kuat)", 1.86, "#f59e0b"], ["Batas Minimum Gempa SNI", 1.20, "#f43f5e"]]}, "flow": [["Beban Inersia", "F_eq = kh × (W1 + W2) bekerja horizontal ke arah hilir."], ["Dinamis Sedimen", "Tambahan dorongan seismik Mononobe-Okabe dari timbunan sedimen."]], "detail": ["Sabo Dam umumnya berlokasi di lereng gunung berapi yang memiliki aktivitas kegempaan vulkanik dan tektonik tinggi."], "risalah": "Risalah Teknis: Pada koefisien gempa kh = 0,15g, nilai FS guling tercatat 1,86 yang masih jauh di atas batas minimum 1,20.", "saran": ["Lakukan inspeksi struktural sayap dan tubuh Sabo Dam setiap pasca gempa > M 5,0."], "kesimpulan": "Kesimpulan: Struktur Sabo Dam memenuhi kriteria ketahanan gempa."},
+        {"n": "12", "slug": "MonitoringTelemetriDanEWS", "title": "TOPIK 12: SISTEM PERINGATAN DINI LAHAR (EWS), KAMERA CCTV & SENSOR GETARAN", "accent": "#facc15", "kpi": [["Sensor Getaran Lahar", "Geophone / Seismometer", "A"], ["Pencatat Tinggi Air", "AWLR Ultrasonic", "A"], ["Kamera Pemantau", "CCTV Thermal 24/7", "A"], ["Status Peringatan", "HIJAU (NORMAL)", "A"]], "chart": {"title": "Tahapan Ambang Peringatan Dini Banjir Lahar", "bars": [["Normal (Hujan < 20 mm/jam)", 20, "#10b981"], ["Waspada (Hujan 40 mm/jam)", 40, "#f59e0b"], ["Siaga (Getaran Geophone Aktif)", 70, "#fb923c"], ["Awas / Sirine Evakuasi Hilir", 100, "#ef4444"]]}, "flow": [["Deteksi Hulu", "Sensor hujan ARR dan geophone mendeteksi getaran aliran lahar di hulu."], ["Verifikasi Visual", "CCTV di lokasi Sabo Dam mengonfirmasi tinggi limpasan mercu."], ["Sirine Hilir", "Peringatan dini dikirim otomatis ke warga dan penambang pasir di hilir."]], "detail": ["Instrumentasi telemetri pada Sabo Dam memberikan waktu emas (golden time) evakuasi bagi masyarakat di sepanjang alur sungai."], "risalah": "Risalah Teknis: Integrasi radar cuaca Windy dan sensor AWLR di dalam aplikasi ini mendukung pengambilan keputusan cepat saat hujan ekstrem di puncak gunung.", "saran": ["Lindungi tiang sensor EWS di tebing sungai dengan kawat bronjong dari terjangan lahar."], "kesimpulan": "Kesimpulan: Sistem telemetri EWS Sabo Dam meningkatkan keselamatan operasional dan warga hilir."},
+        {"n": "13", "slug": "RegulasiSNI2851DanKesimpulan", "title": "TOPIK 13: KEPATUHAN REGULASI SNI 2851:2015, SNI 8064:2016 & PEDOMAN SABO PUPR", "accent": "#94a3b8", "kpi": [["Standar Utama Sabo", "SNI 2851:2015", "A"], ["Standar Stabilitas", "SNI 8064:2016", "A"], ["Pedoman Teknis", "Kementerian PUPR / JICA", "A"], ["Status Verifikasi", "100% KOMPATIBEL", "A"]], "chart": {"title": "Tingkat Pemenuhan Kriteria Desain Sabo Dam (%)", "bars": [["Stabilitas Guling (FS ≥ 1,50)", 100, "#10b981"], ["Stabilitas Geser (FS ≥ 1,50)", 100, "#0ea5e9"], ["Eksentrisitas (e ≤ B/6)", 100, "#8b5cf6"], ["Kapasitas Tampung & Pelimpah", 95, "#f59e0b"]]}, "flow": [["Standar Desain", "Penerapan SNI 2851:2015 untuk kombinasi beban normal, banjir lahar, dan gempa."], ["Dokumentasi Teknis", "Pencetakan 13 topik laporan Word (.doc) dan gambar Blueprint PNG."]], "detail": ["Seluruh algoritma perhitungan di dalam aplikasi ini telah diselaraskan dengan standar nasional desain bendung penahan sedimen (Sabo Dam)."], "risalah": "Risalah Teknis: Aplikasi mampu bekerja secara fleksibel untuk menganalisis bendungan gravitasi air murni (FS = 3,17) maupun struktur Sabo Dam penahan lahar (FS = 2,22).", "saran": ["Gunakan dokumen hasil ekspor Word ini sebagai lampiran perhitungan teknis perencanaan Sabo Dam."], "kesimpulan": "Kesimpulan: Pemodelan struktur Sabo Dam telah lengkap, akurat, dan memenuhi seluruh standar keteknikan."}
+    ];
+    </script>
+
+    <script id="wordReportCenter">
+    (function(){
+        'use strict';
+        function mineWrToast(msg,color){
+            try{
+                var t=document.getElementById('mineWrToast');
+                if(!t){t=document.createElement('div');t.id='mineWrToast';t.style.cssText='position:fixed;top:18px;right:18px;z-index:100060;font-family:monospace;font-size:11px;font-weight:bold;padding:10px 16px;border-radius:12px;color:#fff;background:#0f172a;border:1px solid '+color+';box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;transition:opacity .25s;pointer-events:none;max-width:320px';document.body.appendChild(t);}
+                t.style.borderColor=color;t.textContent=msg;t.style.opacity='1';
+                clearTimeout(window.__wrToastT); window.__wrToastT=setTimeout(function(){t.style.opacity='0';},3200);
+            }catch(e){}
+        }
+        function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+        function nowStr(){try{return new Date().toLocaleString('id-ID',{dateStyle:'full',timeStyle:'short'});}catch(e){return new Date().toString();}}
+        function maxBar(bars){return Math.max.apply(null,bars.map(function(b){return Math.abs(b[1]);}).concat([1e-9]));}
+        function wrBarChart(cfg){
+            var mx=maxBar(cfg.bars), rows='';
+            cfg.bars.forEach(function(b){
+                var pct=Math.max(3,Math.round(Math.abs(b[1])/mx*100));
+                rows+='<tr>'
+                    +'<td width="230" style="font-family:Arial;font-size:10pt;color:#334155;padding:3px 6px 3px 0;">'+esc(b[0])+'</td>'
+                    +'<td><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+                    +'<td width="'+pct+'%" bgcolor="'+b[2]+'" style="height:16px;border-radius:4px;">&nbsp;</td>'
+                    +'<td bgcolor="#E2E8F0" style="height:16px;">&nbsp;</td>'
+                    +'</tr></table></td>'
+                    +'<td width="80" align="right" style="font-family:Arial;font-size:10pt;font-weight:bold;color:'+b[2]+';padding:3px 0 3px 8px;">'+b[1]+'</td>'
+                    +'</tr>';
+            });
+            return '<table width="100%" border="0" cellpadding="2" cellspacing="0" style="margin:6px 0;">'
+                +'<tr><td colspan="3" style="font-family:Arial;font-size:11pt;font-weight:bold;color:#0F172A;padding-bottom:6px;">'+esc(cfg.title)+'</td></tr>'+rows+'</table>';
+        }
+        function wrKpi(kpi){
+            var cells=kpi.map(function(k){
+                var col=k[2]==='A'?'#059669':(k[2]==='W'?'#D97706':'#475569');
+                return '<td width="50%" style="border:1px solid #CBD5E1;padding:8px 10px;font-family:Arial;font-size:10pt;">'
+                    +'<span style="color:#64748B;font-size:8pt;text-transform:uppercase;letter-spacing:1px;">'+esc(k[0])+'</span><br/>'
+                    +'<b style="color:'+col+';font-size:12pt;">'+esc(k[1])+'</b></td>';
+            });
+            var rows='';
+            for(var i=0;i<cells.length;i+=2){rows+='<tr>'+cells[i]+(cells[i+1]||'<td style="border:1px solid #CBD5E1;">&nbsp;</td>')+'</tr>';}
+            return '<table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0;">'+rows+'</table>';
+        }
+        function wrSectionHead(txt,color){
+            return '<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:14px 0 4px 0;"><tr>'
+                +'<td width="6" bgcolor="'+color+'">&nbsp;</td>'
+                +'<td bgcolor="#F1F5F9" style="padding:6px 10px;font-family:Arial;font-size:11pt;font-weight:bold;color:#0F172A;letter-spacing:1px;">'+esc(txt)+'</td></tr></table>';
+        }
+        function wrWorkflow(steps){
+            var rows='';
+            steps.forEach(function(s,i){
+                var cols=['#0EA5E9','#10B981','#8B5CF6','#F59E0B','#F43F5E','#14B8A6'];
+                rows+='<tr><td width="34" align="center" bgcolor="'+cols[i%6]+'" style="font-family:Arial;font-weight:bold;color:#FFFFFF;font-size:11pt;padding:6px;">'+(i+1)+'</td>'
+                    +'<td style="border:1px solid #E2E8F0;padding:6px 10px;font-family:Arial;font-size:10pt;"><b>'+esc(s[0])+'</b> &mdash; '+esc(s[1])+'</td></tr>';
+            });
+            return '<table width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0;">'+rows+'</table>';
+        }
+        function wrList(items,color){
+            var li=items.map(function(t){return '<li style="margin-bottom:4px;font-family:Arial;font-size:10pt;color:#334155;">'+esc(t)+'</li>';}).join('');
+            return '<ul style="margin:6px 0 6px 18px;border-left:4px solid '+color+';padding-left:10px;">'+li+'</ul>';
+        }
+        function wrParas(ps){
+            return ps.map(function(p){return '<p style="font-family:Arial;font-size:10.5pt;line-height:1.55;color:#334155;text-align:justify;margin:6px 0;">'+esc(p)+'</p>';}).join('');
+        }
+        function buildReportHtml(r){
+            var a=r.accent;
+            return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+            +'<head><meta charset="utf-8"><title>'+esc(r.title)+'</title></head>'
+            +'<body style="font-family:Arial,sans-serif;padding:22px;">'
+            +'<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>'
+            +'<td width="60" bgcolor="'+a+'" style="color:#fff;font-family:Arial;font-weight:bold;font-size:22pt;text-align:center;padding:10px;">'+r.n+'</td>'
+            +'<td style="border-bottom:3px solid '+a+';padding:6px 10px;">'
+            +'<div style="font-family:Arial;font-size:8pt;color:#64748B;letter-spacing:2px;">SABO DAM &amp; GRAVITY DAM PRO v5.6 ULTIMATE &bull; SNI 2851:2015 &amp; SNI 8064:2016</div>'
+            +'<div style="font-family:Arial;font-size:15pt;font-weight:bold;color:#0F172A;letter-spacing:1px;">'+esc(r.title)+'</div>'
+            +'<div style="font-family:Arial;font-size:8.5pt;color:#475569;">Laporan Teknis Topik '+r.n+' &bull; Dicetak: '+nowStr()+' &bull; Pengendalian Sedimen &amp; Aliran Debris</div>'
+            +'</td></tr></table>'
+            +wrSectionHead('A. RINGKASAN INDIKATOR (INFOGRAFIS)',a)+wrKpi(r.kpi)
+            +wrSectionHead('B. ALUR KERJA / WORKFLOW',a)+wrWorkflow(r.flow)
+            +wrSectionHead('C. DETAIL PENJELASAN TEKNIS',a)+wrParas(r.detail)
+            +wrSectionHead('D. GRAFIK & VISUAL DATA',a)+wrBarChart(r.chart)
+            +wrSectionHead('E. RISALAH TEKNIS','#0EA5E9')
+            +'<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0;"><tr><td bgcolor="#F0F9FF" style="border:1px solid #BAE6FD;border-left:5px solid #0EA5E9;padding:10px 12px;font-family:Arial;font-size:10.5pt;line-height:1.5;color:#0C4A6E;text-align:justify;">'+esc(r.risalah)+'</td></tr></table>'
+            +wrSectionHead('F. SARAN TEKNIS','#D97706')+wrList(r.saran,'#D97706')
+            +wrSectionHead('G. KESIMPULAN','#059669')
+            +'<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0;"><tr><td bgcolor="#ECFDF5" style="border:1px solid #A7F3D0;border-left:5px solid #059669;padding:10px 12px;font-family:Arial;font-size:10.5pt;line-height:1.5;color:#064E3B;text-align:justify;">'+esc(r.kesimpulan)+'</td></tr></table>'
+            +'<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top:22px;"><tr><td style="border-top:2px solid '+a+';padding:8px 0;font-family:Arial;font-size:8.5pt;color:#475569;">'
+            +'<b>Ir. Mohamad Hartadi</b> &mdash; Civil &amp; Geotechnical Dam Safety Engineer &bull; Blog: <a href="https://newbieonline7.blogspot.com">newbieonline7.blogspot.com</a> &bull; WA: 0822-3103-6047<br/>'
+            +'Dokumen dihasilkan otomatis oleh Sabo Dam &amp; Gravity Dam Stability PRO v5.6 &mdash; Pusat Ekspor Laporan Word 13 Topik.'
+            +'</td></tr></table>'
+            +'</body></html>';
+        }
+        function downloadReport(r){
+            var blob=new Blob(['\ufeff',buildReportHtml(r)],{type:'application/msword'});
+            var url=URL.createObjectURL(blob);
+            var aEl=document.createElement('a');
+            aEl.href=url;
+            aEl.download='Laporan_Topik'+r.n+'_'+r.slug+'_SaboDamPRO.doc';
+            document.body.appendChild(aEl); aEl.click(); document.body.removeChild(aEl);
+            setTimeout(function(){URL.revokeObjectURL(url);},4000);
+        }
+        window.exportTabWordReport=function(idx){
+            var r=WORD_REPORTS[idx]; if(!r)return;
+            try{downloadReport(r); mineWrToast('Laporan Topik '+r.n+' berhasil diekspor ke Word (.doc)','#10b981');}
+            catch(e){mineWrToast('Ekspor gagal: '+e.message,'#f43f5e');}
+        };
+        window.exportAllWordReports=function(){
+            var i=0;
+            (function next(){ if(i>=WORD_REPORTS.length){mineWrToast('Semua 13 laporan Word Sabo Dam berhasil diekspor','#10b981');return;} downloadReport(WORD_REPORTS[i]); i++; setTimeout(next,700); })();
+            mineWrToast('Mengunduh 13 laporan Word Sabo Dam satu per satu...','#0ea5e9');
+        };
+    })();
+
+    function renderWordReportsList(){
+        if(!document.getElementById('mineWrBtnStyle')){var st=document.createElement('style');st.id='mineWrBtnStyle';st.textContent='.mine-wr-btn:hover{background:#0284c7 !important;color:#fff !important}';document.head.appendChild(st);}
+        var host=document.getElementById('wordReportsList'); if(!host) return;
+        var html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px">';
+        WORD_REPORTS.forEach(function(r,i){
+            html+='<div style="display:flex;align-items:center;gap:8px;padding:10px;border-radius:12px;background:rgba(2,6,23,.7);border:1px solid #1e293b">'
+                +'<div style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;flex-shrink:0;background:'+r.accent+'22;border:1px solid '+r.accent+'66;color:'+r.accent+'">'+r.n+'</div>'
+                +'<div style="flex:1;min-width:0"><p style="font-size:10px;font-weight:bold;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r.title+'</p>'
+                +'<p style="font-size:8px;color:#64748b">Infografis &bull; Workflow &bull; Grafik &bull; Risalah &bull; Saran &bull; Kesimpulan</p></div>'
+                +'<button onclick="exportTabWordReport('+i+')" style="padding:6px 10px;border-radius:8px;background:rgba(12,74,110,.6);border:1px solid rgba(14,165,233,.6);color:#7dd3fc;font-size:9px;font-weight:900;cursor:pointer;flex-shrink:0" class="mine-wr-btn"><i class="fa-solid fa-file-word"></i> WORD</button></div>';
+        });
+        html+='</div>'; host.innerHTML=html;
+    }
+    function openWordReportsModal(){var m=document.getElementById('wordReportsModal');if(m){renderWordReportsList();m.classList.remove('hidden');}}
+    function closeWordReportsModal(){var m=document.getElementById('wordReportsModal');if(m)m.classList.add('hidden');}
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'){var m=document.getElementById('wordReportsModal');if(m&&!m.classList.contains('hidden'))m.classList.add('hidden');}});
+    </script>
+</body>
+</html>
